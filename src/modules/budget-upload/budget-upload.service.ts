@@ -88,6 +88,7 @@ export class BudgetUploadService {
             value12: parseFloat(String(item.value12)),
             createdAt: new Date(),
             updatedAt: new Date(),
+            createdBy: item.createdBy,
           };
 
           const prismaResult = await this.prisma.budget.create({
@@ -688,6 +689,9 @@ export class BudgetUploadService {
             return totalByMonth;
           }, {});
         }
+
+        // console.log(categoryObjects);
+        // console.log(DirectExpenses1);
 
         const MaterialExpenses = {
           totalMaterialExpenses: sumByGroup(results1, uniqueGroupGlValues[0]),

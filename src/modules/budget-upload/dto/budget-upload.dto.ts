@@ -120,6 +120,7 @@ export class ItemsBudgetUploadDto {
     value14: { dataType: 'decimal', maxLength: 300 },
     value15: { dataType: 'decimal', maxLength: 300 },
     value16: { dataType: 'decimal', maxLength: 300 },
+    createdBy: { dataType: 'string', maxLength: 300 },
   };
 
   static propertyNames: (keyof ItemsBudgetUploadDto)[] = [

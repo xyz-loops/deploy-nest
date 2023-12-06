@@ -58,12 +58,12 @@ export class RealizationController {
     @Param('status') status: 'save' | 'submit',
   ) {
     try {
-      if (!dto.realizationItems || dto.realizationItems.length === 0) {
-        throw new HttpException(
-          'At least one realization item must be provided',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // if (!dto.realizationItems || dto.realizationItems.length === 0) {
+      //   throw new HttpException(
+      //     'At least one realization item must be provided',
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
 
       if (!files || files.length === 0) {
         throw new HttpException(
