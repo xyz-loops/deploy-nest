@@ -5,9 +5,16 @@ import { MCostCenterModule } from './modules/m-cost-center/m-cost-center.module'
 import { KursModule } from './modules/kurs/kurs.module';
 import { MGlAccountModule } from './modules/m-gl-account/m-gl-account.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { Approval } from './modules/approval/entities/approval.entity';
 
 @Module({
-  imports: [MCostCenterModule, KursModule, MGlAccountModule, DashboardModule],
+  imports: [
+    MCostCenterModule,
+    KursModule,
+    MGlAccountModule,
+    DashboardModule,
+    Approval,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
