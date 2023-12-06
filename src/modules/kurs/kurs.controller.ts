@@ -14,6 +14,7 @@ import {
 import { KursService } from './kurs.service';
 import { CreateKursDto } from './dto/create-kurs.dto';
 import { UpdateKursDto } from './dto/update-kurs.dto';
+import { dot } from 'node:test/reporters';
 
 @Controller({
   version: '1',

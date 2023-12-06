@@ -1,4 +1,9 @@
-import { IsNotEmpty, IsNumber, IsString } from '@nestjs/class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsDecimal,
+} from '@nestjs/class-validator';
 
 export class CreateKursDto {
   @IsNotEmpty()
