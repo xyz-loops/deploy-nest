@@ -185,7 +185,7 @@ export class RealizationController {
     return this.realizationService.findOneRealization(+id);
   }
 
-  @Get(':glAccountId/:costCenterId/calculate-total')
+  @Get(':glAccountId/:costCenterId/available')
   async calculateTotal(
     @Param('glAccountId') glAccountId: number,
     @Param('costCenterId') costCenterId: number,

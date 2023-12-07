@@ -660,6 +660,12 @@ export class RealizationService {
           },
         },
       );
+      const budgetReallocationPlus = budgetReallocation
+        ? budgetReallocation.plus
+        : 0;
+      const budgetReallocationMinus = budgetReallocation
+        ? budgetReallocation.minus
+        : 0;
 
       // total from budget
       const budget = await this.prisma.budget.findFirst({
@@ -675,27 +681,24 @@ export class RealizationService {
 
       if (!budgetReallocation && !budget) {
         throw new NotFoundException(
-          `BudgetReallocation and Budget with GL Account ID ${glAccountId} and Cost Center ID ${costCenterId} not found`,
+          `GL Account ID ${glAccountId} and Cost Center ID ${costCenterId} not found`,
         );
       }
 
       const totalBudget = budget ? budget.total : 0;
 
       // Calculate the total amount
-      const totalAmount =
-        totalBudget -
-        amount +
-        budgetReallocation.plus -
-        budgetReallocation.minus;
+      const totalAvailable =
+        totalBudget - amount + budgetReallocationPlus - budgetReallocationMinus;
 
       return {
         data: {
-          total: totalAmount,
+          available: totalAvailable,
           mGlAccount: budget.mGlAccount,
           mCostCenter: budget.mCostCenter,
         },
         meta: null,
-        message: 'Cost Centers grouped by dinas',
+        message: 'Successfully calculated available budget',
         status: HttpStatus.OK,
         time: new Date(),
       };
