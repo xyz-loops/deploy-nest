@@ -5,14 +5,15 @@ import { MCostCenterModule } from './modules/m-cost-center/m-cost-center.module'
 import { KursModule } from './modules/kurs/kurs.module';
 import { MGlAccountModule } from './modules/m-gl-account/m-gl-account.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { Approval } from './modules/approval/entities/approval.entity';
 import { MStatusModule } from './modules/m-status/m-status.module';
 import { RealizationModule } from './modules/realization/realization.module';
 import { BudgetUploadModule } from './modules/budget-upload/budget-upload.module';
+import { RoleModule } from './modules/role/role.module';
+import { ApprovalModule } from './modules/approval/approval.module';
 
 @Module({
   imports: [
-    Approval,
+    ApprovalModule,
     BudgetUploadModule,
     DashboardModule,
     KursModule,
@@ -20,6 +21,7 @@ import { BudgetUploadModule } from './modules/budget-upload/budget-upload.module
     MGlAccountModule,
     MStatusModule,
     RealizationModule,
+    RoleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

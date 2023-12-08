@@ -23,7 +23,7 @@ export class MGlAccountController {
     return this.mGlAccountService.create(createMGlAccountDto);
   }
 
-  @Get()
+  @Get('/all')
   findAll() {
     return this.mGlAccountService.findAll();
   }
@@ -31,6 +31,16 @@ export class MGlAccountController {
   @Get(':id')
   findOne(@Param('id') id: number) {
     return this.mGlAccountService.findOne(+id);
+  }
+
+  @Get('all/group/')
+  findGroup() {
+    return this.mGlAccountService.groupingByGroup();
+  }
+
+  @Get('all/group/:groupGl')
+  findByBidang(@Param('groupGl') groupGl: string) {
+    return this.mGlAccountService.findGroup(groupGl);
   }
 
   @Put(':id')

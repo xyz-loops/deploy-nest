@@ -17,10 +17,16 @@ import {
   UpdateRealizationItemDto,
 } from './dto/update-realization.dto';
 import { UpdateFileDto } from './dto/update-file-upload.dto';
+import { lastValueFrom, tap } from 'rxjs';
+import { RoleService } from '../role/role.service';
 
 @Injectable()
 export class RealizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  httpService: any;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleService: RoleService,
+  ) {}
 
   async generateRequestNumber(idCostCenter: number): Promise<string> {
     const year = new Date().getFullYear() % 100;
@@ -65,7 +71,11 @@ export class RealizationService {
         let statusTom: number = 1;
         let statusToTom: number = 2;
         let requestNumber: string | null = null;
-        let department: string | null = null;
+        let roleAssignment: any = null;
+
+        let department = await this.generateDepartment(
+          createRealization.costCenterId,
+        );
 
         if (status && status == 'submit') {
           statusTom = 2;
@@ -73,8 +83,9 @@ export class RealizationService {
           requestNumber = await this.generateRequestNumber(
             createRealization.costCenterId,
           );
-          department = await this.generateDepartment(
-            createRealization.costCenterId,
+
+          roleAssignment = await this.roleService.sample(
+            createRealization.createdBy,
           );
         }
 
@@ -93,11 +104,18 @@ export class RealizationService {
             noteRequest: realizationData.noteRequest,
             department: department,
             personalNumber: realizationData.personalNumber,
-            departmentTo: realizationData.departmentTo,
-            personalNumberTo: realizationData.personalNumberTo,
+            departmentTo: roleAssignment?.manager?.personalUnit || null,
+            personalNumberTo: roleAssignment?.manager?.personalNumber || null,
             createdBy: realizationData.createdBy,
             status: StatusEnum.OPEN,
             type: realizationData.type,
+            roleAssignment:
+              {
+                employee: roleAssignment?.employee,
+                manager: roleAssignment?.manager,
+                seniorManager: roleAssignment?.seniorManager,
+                personalSuperior: roleAssignment?.personalSuperior,
+              } || null,
             m_status_realization_id_statusTom_status: {
               connect: {
                 idStatus: statusTom,
@@ -656,7 +674,14 @@ export class RealizationService {
             glAccountId: glAccountId,
           },
           include: {
-            mGlAccount: true,
+            mGlAccount: {
+              select: {
+                idGlAccount: true,
+                glAccount: true,
+                groupGl: true,
+                groupDetail: true,
+              },
+            },
           },
         },
       );
@@ -674,14 +699,28 @@ export class RealizationService {
           costCenterId: costCenterId,
         },
         include: {
-          mCostCenter: true,
-          mGlAccount: true,
+          mCostCenter: {
+            select: {
+              idCostCenter: true,
+              costCenter: true,
+              bidang: true,
+              dinas: true,
+            },
+          },
+          mGlAccount: {
+            select: {
+              idGlAccount: true,
+              glAccount: true,
+              groupGl: true,
+              groupDetail: true,
+            },
+          },
         },
       });
 
       if (!budgetReallocation && !budget) {
         throw new NotFoundException(
-          `GL Account ID ${glAccountId} and Cost Center ID ${costCenterId} not found`,
+          `BudgetReallocation and Budget with GL Account ID ${glAccountId} and Cost Center ID ${costCenterId} not found`,
         );
       }
 

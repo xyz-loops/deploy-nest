@@ -7,6 +7,7 @@ import {
 import { CreateMGlAccountDto } from './dto/create-m-gl-account.dto';
 import { UpdateMGlAccountDto } from './dto/update-m-gl-account.dto';
 import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { glAccount } from 'prisma/dummy-data';
 
 @Injectable()
 export class MGlAccountService {
@@ -45,6 +46,64 @@ export class MGlAccountService {
       data: mGlAccount,
       meta: null,
       message: 'All Gl Account retrieved',
+      status: HttpStatus.OK,
+      time: new Date(),
+    };
+  }
+
+  async groupingByGroup() {
+    try {
+      const GroupGl = await this.prisma.mGlAccount.findMany({
+        distinct: ['groupGl'],
+      });
+      const uniqueGroupGlValues = GroupGl.map((GroupGl) => GroupGl.groupGl);
+
+      return {
+        data: uniqueGroupGlValues,
+        meta: null,
+        message: 'Group Gl',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to group cost centers by dinas',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async findGroup(groupGl: string) {
+    const glAccount = await this.prisma.mGlAccount.findMany({
+      where: { groupGl: groupGl },
+      select: {
+        idGlAccount: true,
+        groupDetail: true,
+        glAccount: true,
+      },
+    });
+    if (!glAccount || glAccount.length === 0) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Cost Center not found',
+          status: HttpStatus.NOT_FOUND,
+          time: new Date(),
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return {
+      data: glAccount,
+      meta: null,
+      message: 'Cost Center found',
       status: HttpStatus.OK,
       time: new Date(),
     };

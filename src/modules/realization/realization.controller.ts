@@ -58,12 +58,12 @@ export class RealizationController {
     @Param('status') status: 'save' | 'submit',
   ) {
     try {
-      // if (!dto.realizationItems || dto.realizationItems.length === 0) {
-      //   throw new HttpException(
-      //     'At least one realization item must be provided',
-      //     HttpStatus.BAD_REQUEST,
-      //   );
-      // }
+      if (!dto.realizationItems || dto.realizationItems.length === 0) {
+        throw new HttpException(
+          'At least one realization item must be provided',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       if (!files || files.length === 0) {
         throw new HttpException(
@@ -185,7 +185,7 @@ export class RealizationController {
     return this.realizationService.findOneRealization(+id);
   }
 
-  @Get(':glAccountId/:costCenterId/available')
+  @Get(':glAccountId/:costCenterId/calculate-total')
   async calculateTotal(
     @Param('glAccountId') glAccountId: number,
     @Param('costCenterId') costCenterId: number,

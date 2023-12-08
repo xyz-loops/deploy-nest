@@ -51,6 +51,7 @@ export class CreateRealizationDto {
   readonly departmentTo: string;
 
   readonly personalNumberTo: string;
+  roleAssignment: JSON;
 
   // @IsString()
   // @IsNotEmpty()

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -288,6 +285,8 @@ model Realization {
   createdBy        String              @map("created_by") @db.VarChar(50)
   updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   updatedBy        String?             @map("updated_by") @db.VarChar(50)
+  contributors     Json?               @map("contributors") @db.JsonB //isi nopeg yg uda approve nanti ada yg approve pake push
+  //nanti di prisma ada find array
   roleAssignment   Json?               @map("role_assignment") @db.JsonB
 
   m_cost_center                               MCostCenter       @relation(fields: [costCenterId], references: [idCostCenter], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_cost_center_to_realization")
