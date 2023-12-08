@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApprovalService } from './approval.service';
-import { CreateApprovalDto } from './dto/create-approval.dto';
+import { ApprovalDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
 
 @Controller({
@@ -35,8 +35,11 @@ export class ApprovalController {
     );
   }
 
-  @Put(':id')
-  update(@Param('id') id: number) {
-    return this.approvalService.reject(+id);
+  @Put('/:id/reject')
+  async rejectRealization(
+    @Param('id') id: number,
+    @Body() approvalDto: ApprovalDto,
+  ) {
+    return this.approvalService.reject(+id, approvalDto);
   }
 }

@@ -271,6 +271,7 @@ model Realization {
   requestNumber    String?             @map("no_request")
   taReff           Int?                @map("ta_reff") @db.Integer
   type             RealizationTypeEnum @default(UANG_MUKA) @map("type")
+  typeOfLetter     String              @default("Realisasi Anggaran") @map("type_of_letter")
   responsibleNopeg String              @map("responsible_nopeg") @db.VarChar(8)
   titleRequest     String              @map("title_request") @db.VarChar()
   noteRequest      String              @map("note_request") @db.Text()

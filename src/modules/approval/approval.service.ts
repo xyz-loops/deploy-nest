@@ -5,10 +5,11 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { CreateApprovalDto } from './dto/create-approval.dto';
+import { ApprovalDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
 import { PrismaService } from 'src/core/service/prisma/prisma.service';
 import { StatusEnum } from '@prisma/client';
+import { UpdateRealizationDto } from '../realization/dto/update-realization.dto';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 
 @Injectable()
@@ -58,7 +59,7 @@ export class ApprovalService {
         filter.status = status;
       }
       if (statusTo) {
-        filter.statusTo = statusTo;
+        filter.personalNumberTo = statusTo;
       }
 
       if (entryDate && entryDateTo) {
@@ -76,7 +77,10 @@ export class ApprovalService {
 
       // Count total items with applied filters
       const totalItems = await this.prisma.realization.count({
-        where: filter,
+        where: {
+          ...filter,
+          personalNumberTo: nopeg,
+        },
       });
 
       const skip = (page - 1) * perPage;
@@ -129,7 +133,7 @@ export class ApprovalService {
           idRealization: realizationItem.idRealization,
           taReff: realizationItem.taReff,
           requestNumber: realizationItem.requestNumber,
-          typeOfLetter: 'Realisasi Anggaran',
+          typeOfLetter: realizationItem.typeOfLetter,
           entryDate: realizationItem.createdAt,
           amountSubmission: totalAmount,
           status: realizationItem.status,
@@ -167,7 +171,37 @@ export class ApprovalService {
     }
   }
 
-  async reject(id: number) {
+  async approve(id: number) {
+    try {
+      const approveRealization = await this.prisma.realization.update({
+        where: { idRealization: id },
+        data: {
+          statusId: 4,
+          statusToId: 5,
+        },
+      });
+      return {
+        data: approveRealization,
+        meta: null,
+        message: 'Realization reject successfully',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to reject realization',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async reject(id: number, approvalDto: ApprovalDto) {
     try {
       const rejectRealization = await this.prisma.realization.update({
         where: { idRealization: id },
@@ -175,8 +209,16 @@ export class ApprovalService {
           status: StatusEnum.REJECT,
         },
       });
+      const rejectApproval = await this.prisma.approval.create({
+        data: {
+          ...approvalDto,
+          tableName: 'Realization',
+          tableId: id,
+          status: StatusEnum.REJECT,
+        },
+      });
       return {
-        data: rejectRealization,
+        data: { rejectRealization, rejectApproval },
         meta: null,
         message: 'Realization reject successfully',
         status: HttpStatus.OK,
