@@ -7,10 +7,7 @@ import {
   NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
-import {
-  CreateFileDto,
-  CreateMDocCategoryDto,
-} from './dto/create-file-upload.dto';
+import { CreateFileDto, CreateMDocCategoryDto } from './dto/create-file-upload.dto';
 import { PrismaService } from 'src/core/service/prisma/prisma.service';
 import { error } from 'console';
 import { UpdateFileDto } from './dto/update-file-upload.dto';

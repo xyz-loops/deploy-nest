@@ -10,6 +10,7 @@ import { RealizationModule } from './modules/realization/realization.module';
 import { BudgetUploadModule } from './modules/budget-upload/budget-upload.module';
 import { RoleModule } from './modules/role/role.module';
 import { ApprovalModule } from './modules/approval/approval.module';
+import { MDocCategoryModule } from './modules/m-doc-category/m-doc-category.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ApprovalModule } from './modules/approval/approval.module';
     DashboardModule,
     KursModule,
     MCostCenterModule,
+    MDocCategoryModule,
     MGlAccountModule,
     MStatusModule,
     RealizationModule,
