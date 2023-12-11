@@ -129,6 +129,37 @@ export class MCostCenterService {
     }
   }
 
+  async findDinas(dinas: string, bidang: string) {
+    const costcenter = await this.prisma.mCostCenter.findMany({
+      where: { dinas, bidang: dinas },
+      select: {
+        idCostCenter: true,
+        uniqueId: true,
+        bidang: true,
+        dinas: true,
+      },
+    });
+    if (!costcenter || costcenter.length === 0) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Cost Center not found',
+          status: HttpStatus.NOT_FOUND,
+          time: new Date(),
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return {
+      data: costcenter,
+      meta: null,
+      message: 'Cost Center found',
+      status: HttpStatus.OK,
+      time: new Date(),
+    };
+  }
+
   async update(id: number, updateDto: UpdateMCostCenterDto) {
     // Check if the MCostCenter exists
     const existingCostCenter = await this.prisma.mCostCenter.findUnique({

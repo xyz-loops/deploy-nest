@@ -90,6 +90,11 @@ export class MCostCenterController {
     return this.mCostCenterService.findBidang(bidang);
   }
 
+  @Get('dinas/:dinas')
+  findByDinas(@Param('dinas') dinas: string, @Param('bidang') bidang: string) {
+    return this.mCostCenterService.findDinas(dinas, bidang);
+  }
+
   @Put(':id')
   update(
     @Param('id') id: string,

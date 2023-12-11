@@ -32,7 +32,8 @@ export class BudgetUploadService {
           'Failed to read Excel, sheetname invalid',
         );
       const items: ItemsBudgetUploadDto[] = read?.budgetUpload;
-
+      console.log(items);
+      const createdBy = req?.body?.createdBy;
       await this.prisma.budget.deleteMany();
 
       const results = await Promise.all(
@@ -42,7 +43,7 @@ export class BudgetUploadService {
               idCostCenter: true,
             },
             where: {
-              bidang: String(item.costCenterId),
+              dinas: String(item.costCenterId),
             },
           });
 
@@ -91,8 +92,13 @@ export class BudgetUploadService {
             createdBy: item.createdBy,
           };
 
+          // console.log(item.createdBy);
+
           const prismaResult = await this.prisma.budget.create({
-            data,
+            data: {
+              ...data,
+              createdBy,
+            },
             include: {
               mGlAccount: {
                 select: {
@@ -565,7 +571,7 @@ export class BudgetUploadService {
         filter.years = +years; // konversi ke number jika diperlukan
       }
       if (costCenter) {
-        filter.mCostCenter = { bidang: costCenter }; // konversi ke number jika diperlukan
+        filter.mCostCenter = { dinas: costCenter }; // konversi ke number jika diperlukan
       }
 
       // Panggil metode prisma atau logika lainnya dengan filter

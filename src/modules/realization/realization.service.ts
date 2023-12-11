@@ -646,7 +646,7 @@ export class RealizationService {
 
   async available(glAccountId: number, costCenterId: number) {
     try {
-      // amount from realization and realization items
+      // amount from tabel realization and tabel realization items
       const realizationItems = await this.prisma.realizationItem.findMany({
         where: {
           realization: {
@@ -661,12 +661,13 @@ export class RealizationService {
         },
       });
 
+      //Blank
       const amount = realizationItems.reduce(
         (sum, item) => sum + item.amount,
         0,
       );
 
-      // plus minus from budget reallocation
+      // plus minus from budget reallocation (null)
       const budgetReallocation = await this.prisma.budgetReallocation.findFirst(
         {
           where: {
@@ -685,6 +686,7 @@ export class RealizationService {
           },
         },
       );
+      //0
       const budgetReallocationPlus = budgetReallocation
         ? budgetReallocation.plus
         : 0;
@@ -692,7 +694,7 @@ export class RealizationService {
         ? budgetReallocation.minus
         : 0;
 
-      // total from budget
+      // nge get row mana yang contain gl sama cost dari budget
       const budget = await this.prisma.budget.findFirst({
         where: {
           glAccountId: glAccountId,
@@ -703,7 +705,6 @@ export class RealizationService {
             select: {
               idCostCenter: true,
               costCenter: true,
-              bidang: true,
               dinas: true,
             },
           },
