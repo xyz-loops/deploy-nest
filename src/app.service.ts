@@ -20,6 +20,6 @@ export class AppService {
         </footer>
       </body>
     </html>
-  `;
+  `
   }
 }

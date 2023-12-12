@@ -11,7 +11,7 @@ import {
   CreateRealizationItemDto,
 } from './dto/create-realization.dto';
 import { CreateFileDto } from './dto/create-file-upload.dto';
-import { Realization, StatusEnum } from '@prisma/client';
+import { PrismaClient, Realization, StatusEnum } from '@prisma/client';
 import {
   UpdateRealizationDto,
   UpdateRealizationItemDto,
@@ -23,10 +23,13 @@ import { RoleService } from '../role/role.service';
 @Injectable()
 export class RealizationService {
   httpService: any;
+  prismaService: PrismaClient;
   constructor(
     private readonly prisma: PrismaService,
     private readonly roleService: RoleService,
-  ) {}
+  ) {
+    this.prismaService = new PrismaClient();
+  }
 
   async generateRequestNumber(idCostCenter: number): Promise<string> {
     const year = new Date().getFullYear() % 100;
@@ -66,124 +69,140 @@ export class RealizationService {
     uploadfile: CreateFileDto[],
     status: 'save' | 'submit',
   ) {
-    return this.prisma.$transaction(async (prisma) => {
-      try {
-        let statusTom: number = 1;
-        let statusToTom: number = 2;
-        let requestNumber: string | null = null;
-        let roleAssignment: any = null;
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Transaction timeout')), 10000),
+      );
 
-        let department = await this.generateDepartment(
-          createRealization.costCenterId,
-        );
+      const transactionPromise = this.prisma.$transaction(
+        async (prisma) => {
+          let statusTom: number = 1;
+          let statusToTom: number = 2;
+          let requestNumber: string | null = null;
+          let roleAssignment: any = null;
 
-        if (status && status == 'submit') {
-          statusTom = 2;
-          statusToTom = 3;
-          requestNumber = await this.generateRequestNumber(
+          let department = await this.generateDepartment(
             createRealization.costCenterId,
           );
 
-          roleAssignment = await this.roleService.sample(
-            createRealization.createdBy,
+          if (status && status == 'submit') {
+            statusTom = 2;
+            statusToTom = 3;
+            requestNumber = await this.generateRequestNumber(
+              createRealization.costCenterId,
+            );
+
+            roleAssignment = await this.roleService.sample(
+              createRealization.createdBy,
+            );
+          }
+
+          // Extract Realization data from the DTO
+          const { ...realizationData } = createRealization;
+
+          // Create realization within the transaction
+          const createdRealization = await prisma.realization.create({
+            data: {
+              years: new Date().getFullYear(),
+              month: new Date().getMonth() + 1,
+              requestNumber: requestNumber,
+              taReff: realizationData.taReff,
+              responsibleNopeg: realizationData.responsibleNopeg,
+              titleRequest: realizationData.titleRequest,
+              noteRequest: realizationData.noteRequest,
+              department: department,
+              personalNumber: realizationData.personalNumber,
+              departmentTo: roleAssignment?.manager?.personalUnit || null,
+              personalNumberTo: roleAssignment?.manager?.personalNumber || null,
+              createdBy: realizationData.createdBy,
+              status: StatusEnum.OPEN,
+              type: realizationData.type,
+              roleAssignment:
+                {
+                  employee: roleAssignment?.employee,
+                  seniorManager: roleAssignment?.seniorManager,
+                  vicePresident: roleAssignment?.personalSuperior,
+                } || null,
+              m_status_realization_id_statusTom_status: {
+                connect: {
+                  idStatus: statusTom,
+                },
+              },
+              m_status_realization_id_status_toTom_status: {
+                connect: {
+                  idStatus: statusToTom,
+                },
+              },
+              m_cost_center: {
+                connect: {
+                  idCostCenter: realizationData.costCenterId,
+                },
+              },
+            },
+          });
+
+          const createdItems = await Promise.all(
+            realizationItems.map(async (item: CreateRealizationItemDto) => {
+              return prisma.realizationItem.create({
+                data: {
+                  ...item,
+                  realizationId: createdRealization.idRealization,
+                  amount: item.amountSubmission,
+                  createdBy: createdRealization.createdBy,
+                  glAccountId: item.glAccountId,
+                },
+              });
+            }),
           );
-        }
 
-        // Extract Realization data from the DTO
-        const { ...realizationData } = createRealization;
+          // Create file uploads within the transaction
+          const uploadFiles = await Promise.all(
+            uploadfile.map(async (file: CreateFileDto) => {
+              return prisma.fileUpload.create({
+                data: {
+                  ...file,
+                  tableName: 'Realization',
+                  tableId: createdRealization.idRealization,
+                  createdBy: createdRealization.createdBy,
+                },
+              });
+            }),
+          );
 
-        // Create realization within the transaction
-        const createdRealization = await prisma.realization.create({
-          data: {
-            years: new Date().getFullYear(),
-            month: new Date().getMonth() + 1,
-            requestNumber: requestNumber,
-            taReff: realizationData.taReff,
-            responsibleNopeg: realizationData.responsibleNopeg,
-            titleRequest: realizationData.titleRequest,
-            noteRequest: realizationData.noteRequest,
-            department: department,
-            personalNumber: realizationData.personalNumber,
-            departmentTo: roleAssignment?.manager?.personalUnit || null,
-            personalNumberTo: roleAssignment?.manager?.personalNumber || null,
-            createdBy: realizationData.createdBy,
-            status: StatusEnum.OPEN,
-            type: realizationData.type,
-            roleAssignment:
-              {
-                employee: roleAssignment?.employee,
-                manager: roleAssignment?.manager,
-                seniorManager: roleAssignment?.seniorManager,
-                personalSuperior: roleAssignment?.personalSuperior,
-              } || null,
-            m_status_realization_id_statusTom_status: {
-              connect: {
-                idStatus: statusTom,
-              },
+          return {
+            realization: {
+              ...createdRealization,
+              realizationItems: createdItems,
+              uploadFiles,
             },
-            m_status_realization_id_status_toTom_status: {
-              connect: {
-                idStatus: statusToTom,
-              },
-            },
-            m_cost_center: {
-              connect: {
-                idCostCenter: realizationData.costCenterId,
-              },
-            },
-          },
-        });
+          };
+        },
+        {
+          timeout: 10000, // default: 5000
+        },
+      );
 
-        const createdItems = await Promise.all(
-          realizationItems.map(async (item: CreateRealizationItemDto) => {
-            return prisma.realizationItem.create({
-              data: {
-                ...item,
-                realizationId: createdRealization.idRealization,
-                amount: item.amountSubmission,
-                createdBy: createdRealization.createdBy,
-                glAccountId: item.glAccountId,
-              },
-            });
-          }),
-        );
+      const result = await Promise.race([timeoutPromise, transactionPromise]);
 
-        // Create file uploads within the transaction
-        const uploadFiles = await Promise.all(
-          uploadfile.map(async (file: CreateFileDto) => {
-            return prisma.fileUpload.create({
-              data: {
-                ...file,
-                tableName: 'Realization',
-                tableId: createdRealization.idRealization,
-                createdBy: createdRealization.createdBy,
-              },
-            });
-          }),
-        );
-
-        return {
-          realization: {
-            ...createdRealization,
-            realizationItems: createdItems,
-            uploadFiles,
-          },
-        };
-      } catch (error) {
-        console.log(error.message);
-        throw new HttpException(
-          {
-            data: null,
-            meta: null,
-            message: 'Failed to create new request',
-            status: HttpStatus.INTERNAL_SERVER_ERROR,
-            time: new Date(),
-            error: error.message,
-          },
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
+      if (result instanceof Error) {
+        throw result;
       }
-    });
+
+      return result;
+    } catch (error) {
+      console.log(error.message);
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to create new request',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async findAllRealization() {
@@ -646,7 +665,7 @@ export class RealizationService {
 
   async available(glAccountId: number, costCenterId: number) {
     try {
-      // amount from tabel realization and tabel realization items
+      // amount from realization and realization items
       const realizationItems = await this.prisma.realizationItem.findMany({
         where: {
           realization: {
@@ -661,13 +680,12 @@ export class RealizationService {
         },
       });
 
-      //Blank
       const amount = realizationItems.reduce(
         (sum, item) => sum + item.amount,
         0,
       );
 
-      // plus minus from budget reallocation (null)
+      // plus minus from budget reallocation
       const budgetReallocation = await this.prisma.budgetReallocation.findFirst(
         {
           where: {
@@ -675,18 +693,10 @@ export class RealizationService {
             glAccountId: glAccountId,
           },
           include: {
-            mGlAccount: {
-              select: {
-                idGlAccount: true,
-                glAccount: true,
-                groupGl: true,
-                groupDetail: true,
-              },
-            },
+            mGlAccount: true,
           },
         },
       );
-      //0
       const budgetReallocationPlus = budgetReallocation
         ? budgetReallocation.plus
         : 0;
@@ -694,28 +704,15 @@ export class RealizationService {
         ? budgetReallocation.minus
         : 0;
 
-      // nge get row mana yang contain gl sama cost dari budget
+      // total from budget
       const budget = await this.prisma.budget.findFirst({
         where: {
           glAccountId: glAccountId,
           costCenterId: costCenterId,
         },
         include: {
-          mCostCenter: {
-            select: {
-              idCostCenter: true,
-              costCenter: true,
-              dinas: true,
-            },
-          },
-          mGlAccount: {
-            select: {
-              idGlAccount: true,
-              glAccount: true,
-              groupGl: true,
-              groupDetail: true,
-            },
-          },
+          mCostCenter: true,
+          mGlAccount: true,
         },
       });
 
