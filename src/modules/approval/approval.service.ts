@@ -19,7 +19,7 @@ export class ApprovalService {
   async findAllWithPaginationAndFilter(
     page: number,
     order: string = 'asc',
-    nopeg: string,
+    personalNumberTo: string,
     queryParams: any,
   ) {
     try {
@@ -79,7 +79,7 @@ export class ApprovalService {
       const totalItems = await this.prisma.realization.count({
         where: {
           ...filter,
-          personalNumberTo: nopeg,
+          personalNumberTo: personalNumberTo,
         },
       });
 
@@ -112,7 +112,7 @@ export class ApprovalService {
         },
         where: {
           ...filter,
-          personalNumberTo: nopeg,
+          personalNumberTo: personalNumberTo,
         },
         include: {
           realizationItem: true,

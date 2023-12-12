@@ -20,9 +20,9 @@ import { UpdateApprovalDto } from './dto/update-approval.dto';
 export class ApprovalController {
   constructor(private readonly approvalService: ApprovalService) {}
 
-  @Get('/all/:nopeg')
+  @Get('/all/:personalNumberTo')
   findAllWithPaginationAndFilter(
-    @Param('nopeg') nopeg: string,
+    @Param('personalNumberTo') personalNumberTo: string,
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
     @Query() queryParams: any,
@@ -30,7 +30,7 @@ export class ApprovalController {
     return this.approvalService.findAllWithPaginationAndFilter(
       page,
       orderBy,
-      nopeg,
+      personalNumberTo,
       queryParams,
     );
   }
