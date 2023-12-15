@@ -20,10 +20,7 @@ import {
   CreateRealizationDto,
   CreateRealizationItemDto,
 } from './dto/create-realization.dto';
-import {
-  UpdateRealizationDto,
-  UpdateRealizationItemDto,
-} from './dto/update-realization.dto';
+import { UpdateRealizationDto } from './dto/update-realization.dto';
 import {
   AnyFilesInterceptor,
   FileInterceptor,
@@ -84,6 +81,7 @@ export class RealizationController {
           docLink: file.path,
           docSize: parseFloat((file.size / 1000000).toFixed(2)),
           docType: extname(file.originalname),
+          department: '',
           createdBy: '',
           tableId: 1,
           docCategoryId: parseInt(dtoFile.docCategoryId[index]),
@@ -111,69 +109,69 @@ export class RealizationController {
     }
   }
 
-  @Put(':id/:status?')
-  @UseInterceptors(AnyFilesInterceptor(multerPdfOptions))
-  async updateRealization(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Req() req: Request,
-    @Body(new ValidationPipe()) dto: UpdateRealizationDto,
-    @Body() dtoFile: UpdateFileDto,
-    @Param('id') id: number,
-    @Param('status') status?: StatusEnum,
-  ) {
-    try {
-      if (!dto.realizationItems || dto.realizationItems.length === 0) {
-        throw new HttpException(
-          'At least one realization item must be provided',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+  // @Put(':id/:status?')
+  // @UseInterceptors(AnyFilesInterceptor(multerPdfOptions))
+  // async updateRealization(
+  //   @UploadedFiles() files: Express.Multer.File[],
+  //   @Req() req: Request,
+  //   @Body(new ValidationPipe()) dto: UpdateRealizationDto,
+  //   @Body() dtoFile: UpdateFileDto,
+  //   @Param('id') id: number,
+  //   @Param('status') status?: StatusEnum,
+  // ) {
+  //   try {
+  //     if (!dto.realizationItems || dto.realizationItems.length === 0) {
+  //       throw new HttpException(
+  //         'At least one realization item must be provided',
+  //         HttpStatus.BAD_REQUEST,
+  //       );
+  //     }
 
-      if (!files || files.length === 0) {
-        throw new HttpException(
-          'At least one file must be uploaded',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const fromRequest = UpdateRealizationDto.fromRequest(dto);
+  //     if (!files || files.length === 0) {
+  //       throw new HttpException(
+  //         'At least one file must be uploaded',
+  //         HttpStatus.BAD_REQUEST,
+  //       );
+  //     }
+  //     const fromRequest = UpdateRealizationDto.fromRequest(dto);
 
-      const realizationItems: UpdateRealizationItemDto[] =
-        fromRequest.realizationItems;
+  //     const realizationItems: UpdateRealizationItemDto[] =
+  //       fromRequest.realizationItems;
 
-      const createFileDtos: CreateFileDto[] = (files ?? []).map(
-        (file, index) => ({
-          tableName: 'Realization',
-          docName: dtoFile.docName[index],
-          docLink: file.path,
-          docSize: parseFloat((file.size / 1000000).toFixed(2)),
-          docType: extname(file.originalname),
-          createdBy: '',
-          tableId: 1,
-          docCategoryId: parseInt(dtoFile.docCategoryId[index]),
-        }),
-      );
+  //     const createFileDtos: CreateFileDto[] = (files ?? []).map(
+  //       (file, index) => ({
+  //         tableName: 'Realization',
+  //         docName: dtoFile.docName[index],
+  //         docLink: file.path,
+  //         docSize: parseFloat((file.size / 1000000).toFixed(2)),
+  //         docType: extname(file.originalname),
+  //         createdBy: '',
+  //         tableId: 1,
+  //         docCategoryId: parseInt(dtoFile.docCategoryId[index]),
+  //       }),
+  //     );
 
-      const realization = await this.realizationService.updateRealization(
-        +id,
-        fromRequest,
-        realizationItems,
-        createFileDtos,
-        status,
-      );
+  //     const realization = await this.realizationService.updateRealization(
+  //       +id,
+  //       fromRequest,
+  //       realizationItems,
+  //       createFileDtos,
+  //       status,
+  //     );
 
-      return {
-        data: realization,
-        message: 'Create new request successfully created',
-        status: HttpStatus.OK,
-        time: new Date(),
-      };
-    } catch (error) {
-      throw new HttpException(
-        error.message || 'Internal Server Error',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
+  //     return {
+  //       data: realization,
+  //       message: 'Create new request successfully created',
+  //       status: HttpStatus.OK,
+  //       time: new Date(),
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       error.message || 'Internal Server Error',
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
 
   @Get()
   findRealization() {

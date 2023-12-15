@@ -12,6 +12,7 @@ import {
 import { ApprovalService } from './approval.service';
 import { ApprovalDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
+import { UpdateRealizationDto } from '../realization/dto/update-realization.dto';
 
 @Controller({
   version: '1',
@@ -39,7 +40,8 @@ export class ApprovalController {
   async rejectRealization(
     @Param('id') id: number,
     @Body() approvalDto: ApprovalDto,
+    @Body() updateRealizationDto: UpdateRealizationDto,
   ) {
-    return this.approvalService.reject(+id, approvalDto);
+    return this.approvalService.reject(+id, updateRealizationDto, approvalDto);
   }
 }

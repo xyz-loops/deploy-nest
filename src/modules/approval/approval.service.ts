@@ -201,22 +201,26 @@ export class ApprovalService {
     }
   }
 
-  async reject(id: number, approvalDto: ApprovalDto) {
+  async reject(
+    id: number,
+    updateRealizationDto: UpdateRealizationDto,
+    approvalDto: ApprovalDto,
+  ) {
     try {
       const rejectRealization = await this.prisma.realization.update({
         where: { idRealization: id },
-        data: {
-          status: StatusEnum.REJECT,
-        },
+        data: updateRealizationDto,
       });
       const rejectApproval = await this.prisma.approval.create({
         data: {
           ...approvalDto,
           tableName: 'Realization',
           tableId: id,
-          status: StatusEnum.REJECT,
+          status: updateRealizationDto.status,
+          createdBy: updateRealizationDto.updatedBy,
         },
       });
+
       return {
         data: { rejectRealization, rejectApproval },
         meta: null,
@@ -225,6 +229,7 @@ export class ApprovalService {
         time: new Date(),
       };
     } catch (error) {
+      console.log(error);
       throw new HttpException(
         {
           data: null,

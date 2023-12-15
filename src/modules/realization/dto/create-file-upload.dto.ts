@@ -8,7 +8,6 @@ export class CreateFileDto {
   tableId: number;
 
   @IsNotEmpty()
-  // @IsString()
   docName: string;
 
   @IsNotEmpty()
@@ -21,6 +20,7 @@ export class CreateFileDto {
   docSize: number;
 
   docType: string;
+  department: string;
 
   //files?: any;
 

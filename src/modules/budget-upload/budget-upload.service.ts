@@ -10,6 +10,7 @@ import { ItemsBudgetUploadDto } from './dto/budget-upload.dto';
 import { ExcelBudgetUploadService } from './excel-budget-upload.service';
 import { ReadBudgetUploadSheetDto } from './dto/read-budget-upload.dto';
 import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { glAccount } from 'prisma/dummy-data';
 
 @Injectable()
 export class BudgetUploadService {
@@ -32,7 +33,6 @@ export class BudgetUploadService {
           'Failed to read Excel, sheetname invalid',
         );
       const items: ItemsBudgetUploadDto[] = read?.budgetUpload;
-      console.log(items);
       const createdBy = req?.body?.createdBy;
       await this.prisma.budget.deleteMany();
 
@@ -92,46 +92,29 @@ export class BudgetUploadService {
             createdBy: item.createdBy,
           };
 
-          // console.log(item.createdBy);
-
           const prismaResult = await this.prisma.budget.create({
             data: {
               ...data,
               createdBy,
-            },
-            include: {
-              mGlAccount: {
-                select: {
-                  idGlAccount: true,
-                  glAccount: true,
-                  groupGl: true,
-                  groupDetail: true,
-                },
-              },
-              mCostCenter: {
-                select: {
-                  idCostCenter: true,
-                  costCenter: true,
-                  dinas: true,
-                },
-              },
             },
           });
           return prismaResult;
         }),
       );
 
-      const GroupGl = await this.prisma.mGlAccount.findMany({
-        distinct: ['groupGl'],
-      });
-      const uniqueGroupGlValues = GroupGl.map((GroupGl) => GroupGl.groupGl);
+      const allGlAccounts = await this.prisma.mGlAccount.findMany();
+      const groupedData = allGlAccounts.reduce((result, glAccount) => {
+        const { groupGl, groupDetail } = glAccount;
 
-      const GroupDetail = await this.prisma.mGlAccount.findMany({
-        distinct: ['groupDetail'],
-      });
-      const uniqueGroupDetailValues = GroupDetail.map(
-        (GroupDetail) => GroupDetail.groupDetail,
-      );
+        if (!result[groupGl]) {
+          result[groupGl] = [];
+        }
+
+        result[groupGl].push(groupDetail);
+
+        return result;
+      }, {});
+      const uniqueGroupGlValues = Object.keys(groupedData);
 
       const months = [
         'JANUARI',
@@ -198,344 +181,51 @@ export class BudgetUploadService {
         }, {});
       }
 
-      const MaterialExpenses = {
-        totalMaterialExpenses: sumByGroup(results, uniqueGroupGlValues[0]),
-        monthMaterialExpenses: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[0],
-        ),
-        ExpendableMaterial: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[0],
-          ),
-          totalExpendableMaterial: sumByGroup(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[0],
-          ),
-          monthExpendableMaterial: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[0],
-          ),
-        },
-        RepairableMaterial: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[1],
-          ),
-          totalRepairableMaterial: sumByGroup(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[1],
-          ),
-          monthRepairableMaterial: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[0],
-            uniqueGroupDetailValues[1],
-          ),
-        },
+      //For Detail or Child or Nested
+      const createCategoryObject = (group, detail, results) => {
+        const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+        return {
+          glAccount: getGlAccount(results, group, detail),
+          total: sumByGroup(results, group, detail),
+          [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+        };
       };
 
-      const SubcontractExpenses = {
-        totalSubcontractExpenses: sumByGroup(results, uniqueGroupGlValues[1]),
-        monthSubcontractExpenses: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[1],
-        ),
-        RotablepartsSubcont: {
-          glAccount: getGlAccount(
+      //For Parent
+      const convertToCategoryObject = (group, details, results) => {
+        const categoryObject = {
+          total: sumByGroup(results, group),
+          monthTotal: sumByGroupAndMonth(results, group),
+          details: {},
+        };
+
+        details.forEach((detail) => {
+          categoryObject.details[detail] = createCategoryObject(
+            group,
+            detail,
             results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[2],
-          ),
-          totalRotablepartsSubcont: sumByGroup(
-            results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[2],
-          ),
-          monthRotablepartsSubcont: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[2],
-          ),
-        },
-        RepairablepartsSubcont: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[3],
-          ),
-          totalRepairablepartsSubcont: sumByGroup(
-            results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[3],
-          ),
-          monthRepairablepartsSubcont: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[1],
-            uniqueGroupDetailValues[3],
-          ),
-        },
+          );
+        });
+        return categoryObject;
       };
 
-      const StaffExpenses = {
-        totalStaffExpenses: sumByGroup(results, uniqueGroupGlValues[2]),
-        monthStaffExpenses: sumByGroupAndMonth(results, uniqueGroupGlValues[2]),
-        BaseSalary: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[4],
-          ),
-          totalBaseSalary: sumByGroup(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[4],
-          ),
-          monthBaseSalary: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[4],
-          ),
-        },
-        Honorarium: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[5],
-          ),
-          totalHonorarium: sumByGroup(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[5],
-          ),
-          monthHonorarium: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[2],
-            uniqueGroupDetailValues[5],
-          ),
-        },
-      };
+      const categories = Object.keys(groupedData).reduce((result, group) => {
+        const categoryObject = convertToCategoryObject(
+          group,
+          groupedData[group],
+          results,
+        );
 
-      const CompanyAccommodation = {
-        totalCompanyAccommodation: sumByGroup(results, uniqueGroupGlValues[3]),
-        monthCompanyAccommodation: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[3],
-        ),
-        Travel: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[6],
-          ),
-          totalTravel: sumByGroup(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[6],
-          ),
-          monthTravel: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[6],
-          ),
-        },
-        Transport: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[7],
-          ),
-          totalTransport: sumByGroup(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[7],
-          ),
-          monthTransport: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[3],
-            uniqueGroupDetailValues[7],
-          ),
-        },
-      };
+        const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
+        // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+        result[group] = {
+          total: categoryObject.total,
+          [monthTotalKey]: categoryObject.monthTotal,
+          ...categoryObject.details, // Menggabungkan nilai details langsung
+        };
 
-      const DepreciationAndAmortisation = {
-        totalDepreciationAndAmortisation: sumByGroup(
-          results,
-          uniqueGroupGlValues[4],
-        ),
-        monthDepreciationAndAmortisation: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[4],
-        ),
-        RotablePart: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[8],
-          ),
-          totalRotablePart: sumByGroup(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[8],
-          ),
-          monthRotablePart: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[8],
-          ),
-        },
-        Amortization: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[9],
-          ),
-          totalAmortization: sumByGroup(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[9],
-          ),
-          monthAmortization: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[4],
-            uniqueGroupDetailValues[9],
-          ),
-        },
-      };
-
-      const FacilityMaintenanceExpenses = {
-        totalDepreciationAndAmortisation: sumByGroup(
-          results,
-          uniqueGroupGlValues[5],
-        ),
-        monthDepreciationAndAmortisation: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[5],
-        ),
-        MaintenanceandRepairHangar: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[10],
-          ),
-          totalMaintenanceandRepairHangar: sumByGroup(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[10],
-          ),
-          monthMaintenanceandRepairHangar: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[10],
-          ),
-        },
-        MaintenanceandRepairHardware: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[11],
-          ),
-          totalMaintenanceandRepairHardware: sumByGroup(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[11],
-          ),
-          monthMaintenanceandRepairHardware: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[5],
-            uniqueGroupDetailValues[11],
-          ),
-        },
-      };
-
-      const RentalExpenses = {
-        totalRentalExpenses: sumByGroup(results, uniqueGroupGlValues[6]),
-        monthRentalExpenses: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[6],
-        ),
-        BuildingRental: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[12],
-          ),
-          totalBuildingRental: sumByGroup(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[12],
-          ),
-          monthBuildingRental: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[12],
-          ),
-        },
-        ComponentRental: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[13],
-          ),
-          totalComponentRental: sumByGroup(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[13],
-          ),
-          monthComponentRental: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[6],
-            uniqueGroupDetailValues[13],
-          ),
-        },
-      };
-
-      const OtherOperatingExpenses = {
-        totalOtherOperating: sumByGroup(results, uniqueGroupGlValues[7]),
-        monthOtherOperating: sumByGroupAndMonth(
-          results,
-          uniqueGroupGlValues[7],
-        ),
-        ElectricityConsumption: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[14],
-          ),
-          totalElectricityConsumption: sumByGroup(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[14],
-          ),
-          monthElectricityConsumption: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[14],
-          ),
-        },
-        Gas: {
-          glAccount: getGlAccount(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[15],
-          ),
-          totalGas: sumByGroup(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[15],
-          ),
-          monthGas: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[7],
-            uniqueGroupDetailValues[15],
-          ),
-        },
-      };
+        return result;
+      }, {});
 
       const DirectExpenses = {
         totalDirectExpenses: getTotalSum(results),
@@ -544,18 +234,10 @@ export class BudgetUploadService {
 
       return {
         DirectExpenses,
-        MaterialExpenses,
-        SubcontractExpenses,
-        OtherOperatingExpenses,
-        StaffExpenses,
-        CompanyAccommodation,
-        DepreciationAndAmortisation,
-        FacilityMaintenanceExpenses,
-        RentalExpenses,
-        // results,
+        ...categories,
       };
     } catch (error) {
-      console.log(error);
+      console.error;
       throw new BadRequestException(error.message || error.stack);
     }
   }
@@ -619,17 +301,19 @@ export class BudgetUploadService {
           };
         });
 
-        const GroupGl = await this.prisma.mGlAccount.findMany({
-          distinct: ['groupGl'],
-        });
-        const uniqueGroupGlValues = GroupGl.map((GroupGl) => GroupGl.groupGl);
+        const allGlAccounts = await this.prisma.mGlAccount.findMany();
+        const groupedData = allGlAccounts.reduce((result, glAccount) => {
+          const { groupGl, groupDetail } = glAccount;
 
-        const GroupDetail = await this.prisma.mGlAccount.findMany({
-          distinct: ['groupDetail'],
-        });
-        const uniqueGroupDetailValues = GroupDetail.map(
-          (GroupDetail) => GroupDetail.groupDetail,
-        );
+          if (!result[groupGl]) {
+            result[groupGl] = [];
+          }
+
+          result[groupGl].push(groupDetail);
+
+          return result;
+        }, {});
+        const uniqueGroupGlValues = Object.keys(groupedData);
 
         const months = [
           'JANUARI',
@@ -696,356 +380,51 @@ export class BudgetUploadService {
           }, {});
         }
 
-        // console.log(categoryObjects);
-        // console.log(DirectExpenses1);
-
-        const MaterialExpenses = {
-          totalMaterialExpenses: sumByGroup(results1, uniqueGroupGlValues[0]),
-          monthMaterialExpenses: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[0],
-          ),
-          ExpendableMaterial: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-            totalExpendableMaterial: sumByGroup(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-            monthExpendableMaterial: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-          },
-          RepairableMaterial: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-            totalRepairableMaterial: sumByGroup(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-            monthRepairableMaterial: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-          },
+        //For Detail or Child or Nested
+        const createCategoryObject = (group, detail, results1) => {
+          const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+          return {
+            glAccount: getGlAccount(results1, group, detail),
+            total: sumByGroup(results1, group, detail),
+            [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
+          };
         };
 
-        const SubcontractExpenses = {
-          totalSubcontractExpenses: sumByGroup(
-            results1,
-            uniqueGroupGlValues[1],
-          ),
-          monthSubcontractExpenses: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[1],
-          ),
-          RotablepartsSubcont: {
-            glAccount: getGlAccount(
+        //For Parent
+        const convertToCategoryObject = (group, details, results1) => {
+          const categoryObject = {
+            total: sumByGroup(results1, group),
+            monthTotal: sumByGroupAndMonth(results1, group),
+            details: {},
+          };
+
+          details.forEach((detail) => {
+            categoryObject.details[detail] = createCategoryObject(
+              group,
+              detail,
               results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-            totalRotablepartsSubcont: sumByGroup(
-              results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-            monthRotablepartsSubcont: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-          },
-          RepairablepartsSubcont: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-            totalRepairablepartsSubcont: sumByGroup(
-              results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-            monthRepairablepartsSubcont: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-          },
+            );
+          });
+          return categoryObject;
         };
 
-        const StaffExpenses = {
-          totalStaffExpenses: sumByGroup(results1, uniqueGroupGlValues[2]),
-          monthStaffExpenses: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[2],
-          ),
-          BaseSalary: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-            totalBaseSalary: sumByGroup(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-            monthBaseSalary: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-          },
-          Honorarium: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-            totalHonorarium: sumByGroup(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-            monthHonorarium: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-          },
-        };
+        const categories = Object.keys(groupedData).reduce((result, group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
+            results,
+          );
 
-        const CompanyAccommodation = {
-          totalCompanyAccommodation: sumByGroup(
-            results1,
-            uniqueGroupGlValues[3],
-          ),
-          monthCompanyAccommodation: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[3],
-          ),
-          Travel: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-            totalTravel: sumByGroup(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-            monthTravel: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-          },
-          Transport: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-            totalTransport: sumByGroup(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-            monthTransport: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-          },
-        };
+          const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
+          // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+          result[group] = {
+            total: categoryObject.total,
+            [monthTotalKey]: categoryObject.monthTotal,
+            ...categoryObject.details, // Menggabungkan nilai details langsung
+          };
 
-        const DepreciationAndAmortisation = {
-          totalDepreciationAndAmortisation: sumByGroup(
-            results1,
-            uniqueGroupGlValues[4],
-          ),
-          monthDepreciationAndAmortisation: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[4],
-          ),
-          RotablePart: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-            totalRotablePart: sumByGroup(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-            monthRotablePart: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-          },
-          Amortization: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-            totalAmortization: sumByGroup(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-            monthAmortization: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-          },
-        };
-
-        const FacilityMaintenanceExpenses = {
-          totalDepreciationAndAmortisation: sumByGroup(
-            results1,
-            uniqueGroupGlValues[5],
-          ),
-          monthDepreciationAndAmortisation: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[5],
-          ),
-          MaintenanceandRepairHangar: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-            totalMaintenanceandRepairHangar: sumByGroup(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-            monthMaintenanceandRepairHangar: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-          },
-          MaintenanceandRepairHardware: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-            totalMaintenanceandRepairHardware: sumByGroup(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-            monthMaintenanceandRepairHardware: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-          },
-        };
-
-        const RentalExpenses = {
-          totalRentalExpenses: sumByGroup(results1, uniqueGroupGlValues[6]),
-          monthRentalExpenses: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[6],
-          ),
-          BuildingRental: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-            totalBuildingRental: sumByGroup(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-            monthBuildingRental: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-          },
-          ComponentRental: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-            totalComponentRental: sumByGroup(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-            monthComponentRental: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-          },
-        };
-
-        const OtherOperatingExpenses = {
-          totalOtherOperating: sumByGroup(results1, uniqueGroupGlValues[7]),
-          monthOtherOperating: sumByGroupAndMonth(
-            results1,
-            uniqueGroupGlValues[7],
-          ),
-          ElectricityConsumption: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-            totalElectricityConsumption: sumByGroup(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-            monthElectricityConsumption: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-          },
-          Gas: {
-            glAccount: getGlAccount(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-            totalGas: sumByGroup(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-            monthGas: sumByGroupAndMonth(
-              results1,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-          },
-        };
+          return result;
+        }, {});
 
         const DirectExpenses = {
           totalDirectExpenses: getTotalSum(results1),
@@ -1054,28 +433,22 @@ export class BudgetUploadService {
 
         return {
           DirectExpenses,
-          MaterialExpenses,
-          SubcontractExpenses,
-          OtherOperatingExpenses,
-          StaffExpenses,
-          CompanyAccommodation,
-          DepreciationAndAmortisation,
-          FacilityMaintenanceExpenses,
-          RentalExpenses,
-          // results1,
+          ...categories,
         };
       } else {
-        const GroupGl = await this.prisma.mGlAccount.findMany({
-          distinct: ['groupGl'],
-        });
-        const uniqueGroupGlValues = GroupGl.map((GroupGl) => GroupGl.groupGl);
+        const allGlAccounts = await this.prisma.mGlAccount.findMany();
+        const groupedData = allGlAccounts.reduce((result, glAccount) => {
+          const { groupGl, groupDetail } = glAccount;
 
-        const GroupDetail = await this.prisma.mGlAccount.findMany({
-          distinct: ['groupDetail'],
-        });
-        const uniqueGroupDetailValues = GroupDetail.map(
-          (GroupDetail) => GroupDetail.groupDetail,
-        );
+          if (!result[groupGl]) {
+            result[groupGl] = [];
+          }
+
+          result[groupGl].push(groupDetail);
+
+          return result;
+        }, {});
+        const uniqueGroupGlValues = Object.keys(groupedData);
 
         const months = [
           'JANUARI',
@@ -1142,350 +515,51 @@ export class BudgetUploadService {
           }, {});
         }
 
-        const MaterialExpenses = {
-          totalMaterialExpenses: sumByGroup(results, uniqueGroupGlValues[0]),
-          monthMaterialExpenses: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[0],
-          ),
-          ExpendableMaterial: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-            totalExpendableMaterial: sumByGroup(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-            monthExpendableMaterial: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[0],
-            ),
-          },
-          RepairableMaterial: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-            totalRepairableMaterial: sumByGroup(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-            monthRepairableMaterial: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[0],
-              uniqueGroupDetailValues[1],
-            ),
-          },
+        //For Detail or Child or Nested
+        const createCategoryObject = (group, detail, results) => {
+          const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+          return {
+            glAccount: getGlAccount(results, group, detail),
+            total: sumByGroup(results, group, detail),
+            [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+          };
         };
 
-        const SubcontractExpenses = {
-          totalSubcontractExpenses: sumByGroup(results, uniqueGroupGlValues[1]),
-          monthSubcontractExpenses: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[1],
-          ),
-          RotablepartsSubcont: {
-            glAccount: getGlAccount(
+        //For Parent
+        const convertToCategoryObject = (group, details, results) => {
+          const categoryObject = {
+            total: sumByGroup(results, group),
+            monthTotal: sumByGroupAndMonth(results, group),
+            details: {},
+          };
+
+          details.forEach((detail) => {
+            categoryObject.details[detail] = createCategoryObject(
+              group,
+              detail,
               results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-            totalRotablepartsSubcont: sumByGroup(
-              results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-            monthRotablepartsSubcont: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[2],
-            ),
-          },
-          RepairablepartsSubcont: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-            totalRepairablepartsSubcont: sumByGroup(
-              results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-            monthRepairablepartsSubcont: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[1],
-              uniqueGroupDetailValues[3],
-            ),
-          },
+            );
+          });
+          return categoryObject;
         };
 
-        const StaffExpenses = {
-          totalStaffExpenses: sumByGroup(results, uniqueGroupGlValues[2]),
-          monthStaffExpenses: sumByGroupAndMonth(
+        const categories = Object.keys(groupedData).reduce((result, group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
             results,
-            uniqueGroupGlValues[2],
-          ),
-          BaseSalary: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-            totalBaseSalary: sumByGroup(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-            monthBaseSalary: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[4],
-            ),
-          },
-          Honorarium: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-            totalHonorarium: sumByGroup(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-            monthHonorarium: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[2],
-              uniqueGroupDetailValues[5],
-            ),
-          },
-        };
+          );
 
-        const CompanyAccommodation = {
-          totalCompanyAccommodation: sumByGroup(
-            results,
-            uniqueGroupGlValues[3],
-          ),
-          monthCompanyAccommodation: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[3],
-          ),
-          Travel: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-            totalTravel: sumByGroup(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-            monthTravel: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[6],
-            ),
-          },
-          Transport: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-            totalTransport: sumByGroup(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-            monthTransport: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[3],
-              uniqueGroupDetailValues[7],
-            ),
-          },
-        };
+          const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
+          // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+          result[group] = {
+            total: categoryObject.total,
+            [monthTotalKey]: categoryObject.monthTotal,
+            ...categoryObject.details, // Menggabungkan nilai details langsung
+          };
 
-        const DepreciationAndAmortisation = {
-          totalDepreciationAndAmortisation: sumByGroup(
-            results,
-            uniqueGroupGlValues[4],
-          ),
-          monthDepreciationAndAmortisation: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[4],
-          ),
-          RotablePart: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-            totalRotablePart: sumByGroup(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-            monthRotablePart: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[8],
-            ),
-          },
-          Amortization: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-            totalAmortization: sumByGroup(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-            monthAmortization: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[4],
-              uniqueGroupDetailValues[9],
-            ),
-          },
-        };
-
-        const FacilityMaintenanceExpenses = {
-          totalDepreciationAndAmortisation: sumByGroup(
-            results,
-            uniqueGroupGlValues[5],
-          ),
-          monthDepreciationAndAmortisation: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[5],
-          ),
-          MaintenanceandRepairHangar: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-            totalMaintenanceandRepairHangar: sumByGroup(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-            monthMaintenanceandRepairHangar: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[10],
-            ),
-          },
-          MaintenanceandRepairHardware: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-            totalMaintenanceandRepairHardware: sumByGroup(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-            monthMaintenanceandRepairHardware: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[5],
-              uniqueGroupDetailValues[11],
-            ),
-          },
-        };
-
-        const RentalExpenses = {
-          totalRentalExpenses: sumByGroup(results, uniqueGroupGlValues[6]),
-          monthRentalExpenses: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[6],
-          ),
-          BuildingRental: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-            totalBuildingRental: sumByGroup(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-            monthBuildingRental: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[12],
-            ),
-          },
-          ComponentRental: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-            totalComponentRental: sumByGroup(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-            monthComponentRental: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[6],
-              uniqueGroupDetailValues[13],
-            ),
-          },
-        };
-
-        const OtherOperatingExpenses = {
-          totalOtherOperating: sumByGroup(results, uniqueGroupGlValues[7]),
-          monthOtherOperating: sumByGroupAndMonth(
-            results,
-            uniqueGroupGlValues[7],
-          ),
-          ElectricityConsumption: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-            totalElectricityConsumption: sumByGroup(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-            monthElectricityConsumption: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[14],
-            ),
-          },
-          Gas: {
-            glAccount: getGlAccount(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-            totalGas: sumByGroup(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-            monthGas: sumByGroupAndMonth(
-              results,
-              uniqueGroupGlValues[7],
-              uniqueGroupDetailValues[15],
-            ),
-          },
-        };
+          return result;
+        }, {});
 
         const DirectExpenses = {
           totalDirectExpenses: getTotalSum(results),
@@ -1494,15 +568,7 @@ export class BudgetUploadService {
 
         return {
           DirectExpenses,
-          MaterialExpenses,
-          SubcontractExpenses,
-          OtherOperatingExpenses,
-          StaffExpenses,
-          CompanyAccommodation,
-          DepreciationAndAmortisation,
-          FacilityMaintenanceExpenses,
-          RentalExpenses,
-          // results,
+          ...categories,
         };
       }
     } catch (error) {

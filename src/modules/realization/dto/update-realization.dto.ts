@@ -11,118 +11,123 @@ import {
 import { UpdateFileDto } from './update-file-upload.dto';
 
 export class UpdateRealizationDto {
-  years: number;
+  // years: number;
 
-  month: number;
+  // month: number;
 
-  @Type(() => Number)
-  costCenterId: number;
+  // costCenterId: number;
 
-  requestNumber: String;
+  // requestNumber: String;
 
-  @Type(() => Number)
-  taReff: number;
+  // @Type(() => Number)
+  // taReff: number;
 
-  @IsOptional()
-  @IsEnum(RealizationTypeEnum)
-  type: RealizationTypeEnum;
-
-  // @IsString()
-  // @IsNotEmpty()
-  responsibleNopeg: string;
+  // @IsOptional()
+  // @IsEnum(RealizationTypeEnum)
+  // type: RealizationTypeEnum;
 
   // @IsString()
   // @IsNotEmpty()
-  titleRequest: string;
+  // responsibleNopeg: string;
 
-  // @IsString()
-  // @IsNotEmpty()
-  noteRequest: string;
+  // // @IsString()
+  // // @IsNotEmpty()
+  // titleRequest: string;
+
+  // // @IsString()
+  // // @IsNotEmpty()
+  // noteRequest: string;
 
   statusId: number;
 
+  @IsOptional()
   statusToId: number;
 
-  readonly department: string;
+  @IsOptional()
+  @IsEnum(StatusEnum)
+  status: StatusEnum;
 
-  readonly personalNumber: string;
+  updatedBy: string;
 
-  readonly departmentTo: string;
+  // readonly department: string;
 
-  readonly personalNumberTo: string;
+  // readonly personalNumber: string;
+
+  // readonly departmentTo: string;
+
+  // readonly personalNumberTo: string;
 
   // @IsString()
   // @IsNotEmpty()
-  createdBy: string;
+  // createdBy: string;
 
-  uploadfile: UpdateFileDto[];
+  // uploadfile: UpdateFileDto[];
 
-  realizationItems: UpdateRealizationItemDto[];
+  // realizationItems: UpdateRealizationItemDto[];
 
-  static fromRequest(data: UpdateRealizationDto): UpdateRealizationDto {
-    data.years = Number(data.years);
-    data.month = Number(data.month);
-    data.costCenterId = Number(data.costCenterId);
-    data.requestNumber = String(data.requestNumber);
-    data.taReff = Number(data.taReff);
+  // static fromRequest(data: UpdateRealizationDto): UpdateRealizationDto {
+  //   data.years = Number(data.years);
+  //   data.month = Number(data.month);
+  //   data.requestNumber = String(data.requestNumber);
+  //   data.taReff = Number(data.taReff);
 
-    if (Array.isArray(data.realizationItems)) {
-      data.realizationItems = UpdateRealizationItemDto.fromRequestArray(
-        data.realizationItems,
-      );
-    }
+  //   if (Array.isArray(data.realizationItems)) {
+  //     data.realizationItems = UpdateRealizationItemDto.fromRequestArray(
+  //       data.realizationItems,
+  //     );
+  //   }
 
-    if (Array.isArray(data.uploadfile)) {
-      data.uploadfile = UpdateFileDto.fromRequest(data.uploadfile);
-    }
+  //   if (Array.isArray(data.uploadfile)) {
+  //     data.uploadfile = UpdateFileDto.fromRequest(data.uploadfile);
+  //   }
 
-    return data;
-  }
+  //   return data;
+  // }
 }
 
-export class UpdateRealizationItemDto {
-  @Type(() => Number)
-  realizationId: number;
+// export class UpdateRealizationItemDto {
+//   @Type(() => Number)
+//   realizationId: number;
 
-  @Type(() => Number)
-  glAccountId: number;
+//   @Type(() => Number)
+//   glAccountId: number;
 
-  @Type(() => Number)
-  amount: number;
+//   @Type(() => Number)
+//   amount: number;
 
-  @Type(() => Number)
-  amountSubmission: number;
+//   @Type(() => Number)
+//   amountSubmission: number;
 
-  @Type(() => Number)
-  amountHps?: number;
+//   @Type(() => Number)
+//   amountHps?: number;
 
-  @Type(() => Number)
-  amountCorrection: number;
+//   @Type(() => Number)
+//   amountCorrection: number;
 
-  periodStart: Date;
+//   periodStart: Date;
 
-  periodFinish: Date;
+//   periodFinish: Date;
 
-  remarkPby: string;
+//   remarkPby: string;
 
-  readonly memo?: string;
+//   readonly memo?: string;
 
-  @IsString()
-  descPby: string;
+//   @IsString()
+//   descPby: string;
 
-  @IsString()
-  createdBy: string;
+//   @IsString()
+//   createdBy: string;
 
-  static fromRequestArray(
-    data: UpdateRealizationItemDto[],
-  ): UpdateRealizationItemDto[] {
-    return data.map((item) => {
-      item.amount = Number(item.amount);
-      item.amountSubmission = Number(item.amountSubmission);
-      item.amountHps = Number(item.amountHps);
-      item.amountCorrection = Number(item.amountCorrection);
-      item.glAccountId = Number(item.glAccountId);
-      return item;
-    });
-  }
-}
+//   static fromRequestArray(
+//     data: UpdateRealizationItemDto[],
+//   ): UpdateRealizationItemDto[] {
+//     return data.map((item) => {
+//       item.amount = Number(item.amount);
+//       item.amountSubmission = Number(item.amountSubmission);
+//       item.amountHps = Number(item.amountHps);
+//       item.amountCorrection = Number(item.amountCorrection);
+//       item.glAccountId = Number(item.glAccountId);
+//       return item;
+//     });
+//   }
+// }
