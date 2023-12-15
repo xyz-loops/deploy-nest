@@ -22,7 +22,6 @@ export class BudgetUploadService {
 
   async convertBudgetUploadFromExcelToJson<T>(
     req: Request,
-    //WriteResponseBase
   ): Promise<any> {
     try {
       const read = await this.excelService.readFormatExcel(req);
@@ -32,8 +31,9 @@ export class BudgetUploadService {
           'Failed to read Excel, sheetname invalid',
         );
       const items: ItemsBudgetUploadDto[] = read?.budgetUpload;
+      const years1 = req?.body?.years;
       const createdBy = req?.body?.createdBy;
-      await this.prisma.budget.deleteMany();
+      // await this.prisma.budget.deleteMany();
 
       const results = await Promise.all(
         items?.map(async (item) => {
@@ -54,8 +54,25 @@ export class BudgetUploadService {
               glAccount: Number(item.glAccountId),
             },
           });
+
+          // Cari data dengan tahun yang sama
+          const existingData = await this.prisma.budget.findMany({
+            where: {
+              years: Number(item.years),
+            },
+          });
+
+          if (existingData.length > 0) {
+            // Hapus data lama
+            await this.prisma.budget.deleteMany({
+              where: {
+                years: Number(item.years),
+              },
+            });
+          }
+
           const data = {
-            years: Number(item.years),
+            years: item.years,
             costCenterId: Number(dataCostCenters?.[0]?.idCostCenter),
             glAccountId: Number(dataGlAccount?.[0]?.idGlAccount),
             total: parseFloat(
@@ -232,369 +249,417 @@ export class BudgetUploadService {
           results,
         );
 
-        const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
         // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
         result[group] = {
+          title: group,
           total: categoryObject.total,
-          [monthTotalKey]: categoryObject.monthTotal,
-          ...categoryObject.details, // Menggabungkan nilai details langsung
+          month: {
+            ...categoryObject.monthTotal,
+          },
+          groupDetail: Object.keys(categoryObject.details).map((detail) => {
+            const subcategoryObject = categoryObject.details[detail];
+            const subcategoryMonthTotalKey = `month${detail.replace(
+              /\s+/g,
+              '',
+            )}`;
+
+            return {
+              title: detail,
+              glNumber: subcategoryObject.glAccount,
+              total: subcategoryObject.total,
+              month: {
+                ...subcategoryObject[subcategoryMonthTotalKey],
+              },
+            };
+          }),
         };
 
         return result;
       }, {});
 
       const DirectExpenses = {
-        totalDirectExpenses: getTotalSum(results),
-        monthDirectExpenses: getTotalSumByMonth(results),
+        title: 'All Direct Expenses',
+        total: getTotalSum(results),
+        month: getTotalSumByMonth(results),
       };
 
-      return {
-        DirectExpenses,
-        ...categories,
-        // results,
-      };
+      const finalResult = [DirectExpenses, ...Object.values(categories)];
+
+      return finalResult;
     } catch (error) {
       console.log(error);
       throw new BadRequestException(error.message || error.stack);
     }
   }
 
-  // async findAllRealization(queryParams: any) {
-  //   try {
-  //     // Dapatkan nilai filter dari queryParams
-  //     const { years, costCenter, percentage } = queryParams;
+  async findAllRealization(queryParams: any) {
+    try {
+      // Dapatkan nilai filter dari queryParams
+      const { years, costCenter, percentage } = queryParams;
 
-  //     // Logika filter sesuai dengan kebutuhan
-  //     let filter: any = {};
-  //     if (years) {
-  //       filter.years = +years; // konversi ke number jika diperlukan
-  //     }
-  //     if (costCenter) {
-  //       filter.mCostCenter = { dinas: costCenter }; // konversi ke number jika diperlukan
-  //     }
+      // Logika filter sesuai dengan kebutuhan
+      let filter: any = {};
+      if (years) {
+        filter.years = +years; // konversi ke number jika diperlukan
+      }
+      if (costCenter) {
+        filter.mCostCenter = { dinas: costCenter }; // konversi ke number jika diperlukan
+      }
 
-  //     // Panggil metode prisma atau logika lainnya dengan filter
-  //     const results = await this.prisma.budget.findMany({
-  //       where: filter, // Apply the filter to the query
-  //       include: {
-  //         mGlAccount: {
-  //           select: {
-  //             idGlAccount: true,
-  //             glAccount: true,
-  //             groupGl: true,
-  //             groupDetail: true,
-  //           },
-  //         },
-  //         mCostCenter: {
-  //           select: {
-  //             idCostCenter: true,
-  //             costCenter: true,
-  //             dinas: true,
-  //           },
-  //         },
-  //       },
-  //     });
+      // Panggil metode prisma atau logika lainnya dengan filter
+      const results = await this.prisma.budget.findMany({
+        where: filter, // Apply the filter to the query
+        include: {
+          mGlAccount: {
+            select: {
+              idGlAccount: true,
+              glAccount: true,
+              groupGl: true,
+              groupDetail: true,
+            },
+          },
+          mCostCenter: {
+            select: {
+              idCostCenter: true,
+              costCenter: true,
+              dinas: true,
+            },
+          },
+        },
+      });
 
-  //     if (!results || results.length === 0) {
-  //       throw new NotFoundException(
-  //         'No realizations found with the specified filter.',
-  //       );
-  //     }
+      if (!results || results.length === 0) {
+        throw new NotFoundException(
+          'No realizations found with the specified filter.',
+        );
+      }
 
-  //     // Check if a percentage is provided and it is a valid number
-  //     if (percentage && !isNaN(percentage)) {
-  //       const multiplier = +percentage / 100; // Convert percentage to a multiplier
-  //       // Multiply each entry in results1 by the specified percentage
-  //       const results1 = results.map((item) => {
-  //         const updatedValues = {};
+      // Check if a percentage is provided and it is a valid number
+      if (percentage && !isNaN(percentage)) {
+        const multiplier = +percentage / 100; // Convert percentage to a multiplier
+        // Multiply each entry in results1 by the specified percentage
+        const results1 = results.map((item) => {
+          const updatedValues = {};
 
-  //         for (let i = 1; i <= 12; i++) {
-  //           updatedValues[`value${i}`] = item[`value${i}`] * multiplier;
-  //         }
-  //         return {
-  //           ...item,
-  //           total: item.total * multiplier,
-  //           ...updatedValues,
-  //         };
-  //       });
+          for (let i = 1; i <= 12; i++) {
+            updatedValues[`value${i}`] = item[`value${i}`] * multiplier;
+          }
+          return {
+            ...item,
+            total: item.total * multiplier,
+            ...updatedValues,
+          };
+        });
 
-  //       const allGlAccounts = await this.prisma.mGlAccount.findMany();
-  //       const groupedData = allGlAccounts.reduce((result, glAccount) => {
-  //         const { groupGl, groupDetail } = glAccount;
+        const allGlAccounts = await this.prisma.mGlAccount.findMany();
+        const groupedData = allGlAccounts.reduce((result, glAccount) => {
+          const { groupGl, groupDetail } = glAccount;
 
-  //         if (!result[groupGl]) {
-  //           result[groupGl] = [];
-  //         }
+          if (!result[groupGl]) {
+            result[groupGl] = [];
+          }
 
-  //         result[groupGl].push(groupDetail);
+          result[groupGl].push(groupDetail);
 
-  //         return result;
-  //       }, {});
-  //       const uniqueGroupGlValues = Object.keys(groupedData);
+          return result;
+        }, {});
+        const uniqueGroupGlValues = Object.keys(groupedData);
 
-  //       const months = [
-  //         'JANUARI',
-  //         'FEBRUARI',
-  //         'MARET',
-  //         'APRIL',
-  //         'MEI',
-  //         'JUNI',
-  //         'JULI',
-  //         'AGUSTUS',
-  //         'SEPTEMBER',
-  //         'OKTOBER',
-  //         'NOVEMBER',
-  //         'DESEMBER',
-  //       ];
+        const months = [
+          'JANUARI',
+          'FEBRUARI',
+          'MARET',
+          'APRIL',
+          'MEI',
+          'JUNI',
+          'JULI',
+          'AGUSTUS',
+          'SEPTEMBER',
+          'OKTOBER',
+          'NOVEMBER',
+          'DESEMBER',
+        ];
 
-  //       function sumByGroup(results1, group, detail = null) {
-  //         return results1
-  //           .filter((item) =>
-  //             detail
-  //               ? item.mGlAccount.groupGl === group &&
-  //                 item.mGlAccount.groupDetail === detail
-  //               : item.mGlAccount.groupGl === group,
-  //           )
-  //           .reduce((sum, item) => sum + item.total, 0);
-  //       }
-  //       function sumByGroupAndMonth(results1, group, detail = null) {
-  //         return months.reduce((result1, month, i) => {
-  //           result1[month] = results1
-  //             .filter((item) =>
-  //               detail
-  //                 ? item.mGlAccount.groupGl === group &&
-  //                   item.mGlAccount.groupDetail === detail
-  //                 : item.mGlAccount.groupGl === group,
-  //             )
-  //             .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
-  //           return result1;
-  //         }, {});
-  //       }
-  //       function getGlAccount(results1, group, detail) {
-  //         return results1
-  //           .filter(
-  //             (item) =>
-  //               item.mGlAccount.groupGl === group &&
-  //               item.mGlAccount.groupDetail === detail,
-  //           )
-  //           .reduce((acc, item) => {
-  //             // Anda dapat menyesuaikan nilai sesuai kebutuhan
-  //             return parseInt(item.mGlAccount.glAccount);
-  //           }, {});
-  //       }
-  //       function getTotalSum(results1) {
-  //         return uniqueGroupGlValues.reduce((total, group) => {
-  //           const groupTotal = sumByGroup(results1, group);
-  //           return total + groupTotal;
-  //         }, 0);
-  //       }
-  //       function getTotalSumByMonth(results1) {
-  //         return months.reduce((totalByMonth, month, i) => {
-  //           totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
-  //             return sum + sumByGroupAndMonth(results1, group)[month];
-  //           }, 0);
-  //           return totalByMonth;
-  //         }, {});
-  //       }
+        function sumByGroup(results1, group, detail = null) {
+          return results1
+            .filter((item) =>
+              detail
+                ? item.mGlAccount.groupGl === group &&
+                  item.mGlAccount.groupDetail === detail
+                : item.mGlAccount.groupGl === group,
+            )
+            .reduce((sum, item) => sum + item.total, 0);
+        }
+        function sumByGroupAndMonth(results1, group, detail = null) {
+          return months.reduce((result, month, i) => {
+            result[month] = results1
+              .filter((item) =>
+                detail
+                  ? item.mGlAccount.groupGl === group &&
+                    item.mGlAccount.groupDetail === detail
+                  : item.mGlAccount.groupGl === group,
+              )
+              .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
+            return result;
+          }, {});
+        }
+        function getGlAccount(results1, group, detail) {
+          return results1
+            .filter(
+              (item) =>
+                item.mGlAccount.groupGl === group &&
+                item.mGlAccount.groupDetail === detail,
+            )
+            .reduce((acc, item) => {
+              // Anda dapat menyesuaikan nilai sesuai kebutuhan
+              return parseInt(item.mGlAccount.glAccount);
+            }, {});
+        }
+        function getTotalSum(results1) {
+          return uniqueGroupGlValues.reduce((total, group) => {
+            const groupTotal = sumByGroup(results1, group);
+            return total + groupTotal;
+          }, 0);
+        }
+        function getTotalSumByMonth(results1) {
+          return months.reduce((totalByMonth, month, i) => {
+            totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
+              return sum + sumByGroupAndMonth(results1, group)[month];
+            }, 0);
+            return totalByMonth;
+          }, {});
+        }
 
-  //       //For Detail or Child or Nested
-  //       const createCategoryObject = (group, detail, results1) => {
-  //         const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
-  //         return {
-  //           glAccount: getGlAccount(results1, group, detail),
-  //           total: sumByGroup(results1, group, detail),
-  //           [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
-  //         };
-  //       };
+        //For Detail or Child or Nested
+        const createCategoryObject = (group, detail, results1) => {
+          const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+          return {
+            glAccount: getGlAccount(results1, group, detail),
+            total: sumByGroup(results1, group, detail),
+            [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
+          };
+        };
 
-  //       //For Parent
-  //       const convertToCategoryObject = (group, details, results1) => {
-  //         const categoryObject = {
-  //           total: sumByGroup(results1, group),
-  //           monthTotal: sumByGroupAndMonth(results1, group),
-  //           details: {},
-  //         };
+        //For Parent
+        const convertToCategoryObject = (group, details, results1) => {
+          const categoryObject = {
+            total: sumByGroup(results1, group),
+            monthTotal: sumByGroupAndMonth(results1, group),
+            details: {},
+          };
 
-  //         details.forEach((detail) => {
-  //           categoryObject.details[detail] = createCategoryObject(
-  //             group,
-  //             detail,
-  //             results1,
-  //           );
-  //         });
-  //         return categoryObject;
-  //       };
+          details.forEach((detail) => {
+            categoryObject.details[detail] = createCategoryObject(
+              group,
+              detail,
+              results1,
+            );
+          });
+          return categoryObject;
+        };
 
-  //       const categories = Object.keys(groupedData).reduce((result, group) => {
-  //         const categoryObject = convertToCategoryObject(
-  //           group,
-  //           groupedData[group],
-  //           results,
-  //         );
+        const categories = Object.keys(groupedData).reduce((result, group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
+            results1,
+          );
 
-  //         const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
-  //         // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
-  //         result[group] = {
-  //           total: categoryObject.total,
-  //           [monthTotalKey]: categoryObject.monthTotal,
-  //           ...categoryObject.details, // Menggabungkan nilai details langsung
-  //         };
+          // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+          result[group] = {
+            title: group,
+            total: categoryObject.total,
+            month: {
+              ...categoryObject.monthTotal,
+            },
+            groupDetail: Object.keys(categoryObject.details).map((detail) => {
+              const subcategoryObject = categoryObject.details[detail];
+              const subcategoryMonthTotalKey = `month${detail.replace(
+                /\s+/g,
+                '',
+              )}`;
 
-  //         return result;
-  //       }, {});
+              return {
+                title: detail,
+                glNumber: subcategoryObject.glAccount,
+                total: subcategoryObject.total,
+                month: {
+                  ...subcategoryObject[subcategoryMonthTotalKey],
+                },
+              };
+            }),
+          };
 
-  //       const DirectExpenses = {
-  //         totalDirectExpenses: getTotalSum(results1),
-  //         monthDirectExpenses: getTotalSumByMonth(results1),
-  //       };
+          return result;
+        }, {});
 
-  //       return {
-  //         DirectExpenses,
-  //         ...categories,
-  //       };
-  //     } else {
-  //       const allGlAccounts = await this.prisma.mGlAccount.findMany();
-  //       const groupedData = allGlAccounts.reduce((result, glAccount) => {
-  //         const { groupGl, groupDetail } = glAccount;
+        const DirectExpenses = {
+          title: 'All Direct Expenses',
+          total: getTotalSum(results1),
+          month: getTotalSumByMonth(results1),
+        };
 
-  //         if (!result[groupGl]) {
-  //           result[groupGl] = [];
-  //         }
+        return { data: [DirectExpenses, ...Object.values(categories)] };
+      } else {
+        const allGlAccounts = await this.prisma.mGlAccount.findMany();
+        const groupedData = allGlAccounts.reduce((result, glAccount) => {
+          const { groupGl, groupDetail } = glAccount;
 
-  //         result[groupGl].push(groupDetail);
+          if (!result[groupGl]) {
+            result[groupGl] = [];
+          }
 
-  //         return result;
-  //       }, {});
-  //       const uniqueGroupGlValues = Object.keys(groupedData);
+          result[groupGl].push(groupDetail);
 
-  //       const months = [
-  //         'JANUARI',
-  //         'FEBRUARI',
-  //         'MARET',
-  //         'APRIL',
-  //         'MEI',
-  //         'JUNI',
-  //         'JULI',
-  //         'AGUSTUS',
-  //         'SEPTEMBER',
-  //         'OKTOBER',
-  //         'NOVEMBER',
-  //         'DESEMBER',
-  //       ];
+          return result;
+        }, {});
+        const uniqueGroupGlValues = Object.keys(groupedData);
 
-  //       function sumByGroup(results, group, detail = null) {
-  //         return results
-  //           .filter((item) =>
-  //             detail
-  //               ? item.mGlAccount.groupGl === group &&
-  //                 item.mGlAccount.groupDetail === detail
-  //               : item.mGlAccount.groupGl === group,
-  //           )
-  //           .reduce((sum, item) => sum + item.total, 0);
-  //       }
-  //       function sumByGroupAndMonth(results, group, detail = null) {
-  //         return months.reduce((result, month, i) => {
-  //           result[month] = results
-  //             .filter((item) =>
-  //               detail
-  //                 ? item.mGlAccount.groupGl === group &&
-  //                   item.mGlAccount.groupDetail === detail
-  //                 : item.mGlAccount.groupGl === group,
-  //             )
-  //             .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
-  //           return result;
-  //         }, {});
-  //       }
-  //       function getGlAccount(results, group, detail) {
-  //         return results
-  //           .filter(
-  //             (item) =>
-  //               item.mGlAccount.groupGl === group &&
-  //               item.mGlAccount.groupDetail === detail,
-  //           )
-  //           .reduce((acc, item) => {
-  //             // Anda dapat menyesuaikan nilai sesuai kebutuhan
-  //             return parseInt(item.mGlAccount.glAccount);
-  //           }, {});
-  //       }
-  //       function getTotalSum(results) {
-  //         return uniqueGroupGlValues.reduce((total, group) => {
-  //           const groupTotal = sumByGroup(results, group);
-  //           return total + groupTotal;
-  //         }, 0);
-  //       }
-  //       function getTotalSumByMonth(results) {
-  //         return months.reduce((totalByMonth, month, i) => {
-  //           totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
-  //             return sum + sumByGroupAndMonth(results, group)[month];
-  //           }, 0);
-  //           return totalByMonth;
-  //         }, {});
-  //       }
+        const months = [
+          'JANUARI',
+          'FEBRUARI',
+          'MARET',
+          'APRIL',
+          'MEI',
+          'JUNI',
+          'JULI',
+          'AGUSTUS',
+          'SEPTEMBER',
+          'OKTOBER',
+          'NOVEMBER',
+          'DESEMBER',
+        ];
 
-  //       //For Detail or Child or Nested
-  //       const createCategoryObject = (group, detail, results) => {
-  //         const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
-  //         return {
-  //           glAccount: getGlAccount(results, group, detail),
-  //           total: sumByGroup(results, group, detail),
-  //           [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
-  //         };
-  //       };
+        function sumByGroup(results, group, detail = null) {
+          return results
+            .filter((item) =>
+              detail
+                ? item.mGlAccount.groupGl === group &&
+                  item.mGlAccount.groupDetail === detail
+                : item.mGlAccount.groupGl === group,
+            )
+            .reduce((sum, item) => sum + item.total, 0);
+        }
+        function sumByGroupAndMonth(results, group, detail = null) {
+          return months.reduce((result, month, i) => {
+            result[month] = results
+              .filter((item) =>
+                detail
+                  ? item.mGlAccount.groupGl === group &&
+                    item.mGlAccount.groupDetail === detail
+                  : item.mGlAccount.groupGl === group,
+              )
+              .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
+            return result;
+          }, {});
+        }
+        function getGlAccount(results, group, detail) {
+          return results
+            .filter(
+              (item) =>
+                item.mGlAccount.groupGl === group &&
+                item.mGlAccount.groupDetail === detail,
+            )
+            .reduce((acc, item) => {
+              // Anda dapat menyesuaikan nilai sesuai kebutuhan
+              return parseInt(item.mGlAccount.glAccount);
+            }, {});
+        }
+        function getTotalSum(results) {
+          return uniqueGroupGlValues.reduce((total, group) => {
+            const groupTotal = sumByGroup(results, group);
+            return total + groupTotal;
+          }, 0);
+        }
+        function getTotalSumByMonth(results) {
+          return months.reduce((totalByMonth, month, i) => {
+            totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
+              return sum + sumByGroupAndMonth(results, group)[month];
+            }, 0);
+            return totalByMonth;
+          }, {});
+        }
 
-  //       //For Parent
-  //       const convertToCategoryObject = (group, details, results) => {
-  //         const categoryObject = {
-  //           total: sumByGroup(results, group),
-  //           monthTotal: sumByGroupAndMonth(results, group),
-  //           details: {},
-  //         };
+        //For Detail or Child or Nested
+        const createCategoryObject = (group, detail, results) => {
+          const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+          return {
+            glAccount: getGlAccount(results, group, detail),
+            total: sumByGroup(results, group, detail),
+            [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+          };
+        };
 
-  //         details.forEach((detail) => {
-  //           categoryObject.details[detail] = createCategoryObject(
-  //             group,
-  //             detail,
-  //             results,
-  //           );
-  //         });
-  //         return categoryObject;
-  //       };
+        //For Parent
+        const convertToCategoryObject = (group, details, results) => {
+          const categoryObject = {
+            total: sumByGroup(results, group),
+            monthTotal: sumByGroupAndMonth(results, group),
+            details: {},
+          };
 
-  //       const categories = Object.keys(groupedData).reduce((result, group) => {
-  //         const categoryObject = convertToCategoryObject(
-  //           group,
-  //           groupedData[group],
-  //           results,
-  //         );
+          details.forEach((detail) => {
+            categoryObject.details[detail] = createCategoryObject(
+              group,
+              detail,
+              results,
+            );
+          });
+          return categoryObject;
+        };
 
-  //         const monthTotalKey = `month${group.replace(/\s+/g, '')}`;
-  //         // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
-  //         result[group] = {
-  //           total: categoryObject.total,
-  //           [monthTotalKey]: categoryObject.monthTotal,
-  //           ...categoryObject.details, // Menggabungkan nilai details langsung
-  //         };
+        const categories = Object.keys(groupedData).reduce((result, group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
+            results,
+          );
 
-  //         return result;
-  //       }, {});
+          // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+          result[group] = {
+            title: group,
+            total: categoryObject.total,
+            month: {
+              ...categoryObject.monthTotal,
+            },
+            groupDetail: Object.keys(categoryObject.details).map((detail) => {
+              const subcategoryObject = categoryObject.details[detail];
+              const subcategoryMonthTotalKey = `month${detail.replace(
+                /\s+/g,
+                '',
+              )}`;
 
-  //       const DirectExpenses = {
-  //         totalDirectExpenses: getTotalSum(results),
-  //         monthDirectExpenses: getTotalSumByMonth(results),
-  //       };
+              return {
+                title: detail,
+                glNumber: subcategoryObject.glAccount,
+                total: subcategoryObject.total,
+                month: {
+                  ...subcategoryObject[subcategoryMonthTotalKey],
+                },
+              };
+            }),
+          };
 
-  //       return {
-  //         DirectExpenses,
-  //         ...categories,
-  //       };
-  //     }
-  //   } catch (error) {
-  //     if (error instanceof NotFoundException) {
-  //       throw error; // NestJS will handle NotFoundException and send a 404 response
-  //     } else {
-  //       // Log the error or handle other types of errors
-  //       throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
-  //     }
-  //   }
-  // }
+          return result;
+        }, {});
+
+        const DirectExpenses = {
+          title: 'All Direct Expenses',
+          total: getTotalSum(results),
+          month: getTotalSumByMonth(results),
+        };
+
+        const finalResult = [DirectExpenses, ...Object.values(categories)];
+
+        return finalResult;
+      }
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error; // NestJS will handle NotFoundException and send a 404 response
+      } else {
+        // Log the error or handle other types of errors
+        throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
+      }
+    }
+  }
 }
