@@ -1,5 +1,12 @@
 import { StatusEnum } from '@prisma/client';
-import { IsEnum } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
+import { UpdateRealizationDto } from 'src/modules/realization/dto/update-realization.dto';
+
+export class ApproveDto {
+  readonly idRealization: number;
+  readonly updateRealizationDto: UpdateRealizationDto;
+  readonly approvalDto: ApprovalDto;
+}
 
 export class ApprovalDto {
   tableName: string;

@@ -4,7 +4,7 @@ import { BudgetUploadController } from './budget-upload.controller';
 import { ExcelBudgetUploadService } from './excel-budget-upload.service';
 import { ReadExcelSheetBudgetUploadBuilder } from 'src/core/utils/read-excel-sheet-budget-upload-builder.util';
 import { BudgetUploadProcessExcelToJsonBuilder } from 'src/core/utils/budget-upload-process-excel-to-json-builder.util';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 
 @Module({
   controllers: [BudgetUploadController],

@@ -48,10 +48,10 @@ export class BudgetUploadController {
       return res.status(400).json(error.response);
     }
   }
-  @Get('/all')
-  async findFilterBudget(@Query() queryParams: any) {
-    const findFilterBudget =
-      await this.budgetUploadService.findAllRealization(queryParams);
-    return findFilterBudget;
-  }
+  // @Get('/all')
+  // async findFilterBudget(@Query() queryParams: any) {
+  //   const findFilterBudget =
+  //     await this.budgetUploadService.findAllRealization(queryParams);
+  //   return findFilterBudget;
+  // }
 }

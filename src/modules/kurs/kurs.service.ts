@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { CreateKursDto } from './dto/create-kurs.dto';
 import { UpdateKursDto } from './dto/update-kurs.dto';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 
 @Injectable()

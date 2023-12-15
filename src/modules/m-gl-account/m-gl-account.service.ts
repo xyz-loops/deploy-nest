@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateMGlAccountDto } from './dto/create-m-gl-account.dto';
 import { UpdateMGlAccountDto } from './dto/update-m-gl-account.dto';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 import { glAccount } from 'prisma/dummy-data';
 
 @Injectable()

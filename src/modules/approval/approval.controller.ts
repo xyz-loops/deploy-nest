@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApprovalService } from './approval.service';
-import { ApprovalDto } from './dto/create-approval.dto';
+import { ApprovalDto, ApproveDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
 import { UpdateRealizationDto } from '../realization/dto/update-realization.dto';
 
@@ -36,12 +36,33 @@ export class ApprovalController {
     );
   }
 
-  @Put('/:id/reject')
-  async rejectRealization(
-    @Param('id') id: number,
-    @Body() approvalDto: ApprovalDto,
-    @Body() updateRealizationDto: UpdateRealizationDto,
+  @Get('count/:personalNumberTo')
+  countNeedApproval(@Param('personalNumberTo') personalNumberTo: string) {
+    return this.approvalService.countNeedApproval(personalNumberTo);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: number) {
+    return this.approvalService.findOneApproval(+id);
+  }
+
+  @Post('/reject')
+  async approval(@Body() dto: ApproveDto) {
+    return this.approvalService.approval(dto);
+  }
+
+  @Get('remark/')
+  remark(
+    @Param('personalNumberTo') personalNumberTo: string,
+    @Query('page') page: number,
+    @Query('orderBy') orderBy: string,
+    @Query() queryParams: any,
   ) {
-    return this.approvalService.reject(+id, updateRealizationDto, approvalDto);
+    return this.approvalService.remark(
+      page,
+      orderBy,
+      personalNumberTo,
+      queryParams,
+    );
   }
 }

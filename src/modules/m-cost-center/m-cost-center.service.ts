@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/core/service/prisma/prisma.service'; // Import the Prisma service for database operations.
+import { PrismaService } from 'src/core/service/prisma.service'; // Import the Prisma service for database operations.
 import { CreateMCostCenterDto } from './dto/create-m-cost-center.dto';
 import { UpdateMCostCenterDto } from './dto/update-m-cost-center.dto';
 

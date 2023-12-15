@@ -3,6 +3,14 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+async function deleteExistingData() {
+  // Hapus semua data yang sudah ada sebelumnya
+  await prisma.mGlAccount.deleteMany({});
+  await prisma.mCostCenter.deleteMany({});
+  await prisma.mDocCategory.deleteMany({});
+  await prisma.mStatus.deleteMany({});
+}
+
 async function seedGlAccounts() {
   await prisma.mGlAccount.createMany({
     data: glAccount,

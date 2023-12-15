@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateMDocCategoryDto } from './dto/create-m-doc-category.dto';
 import { UpdateMDocCategoryDto } from './dto/update-m-doc-category.dto';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 
 @Injectable()
 export class MDocCategoryService {

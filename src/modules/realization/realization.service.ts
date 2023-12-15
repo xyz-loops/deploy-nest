@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 import {
   CreateRealizationDto,
   CreateRealizationItemDto,

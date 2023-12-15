@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateMStatusDto } from './dto/create-m-status.dto';
 import { UpdateMStatusDto } from './dto/update-m-status.dto';
-import { PrismaService } from 'src/core/service/prisma/prisma.service';
+import { PrismaService } from 'src/core/service/prisma.service';
 
 @Injectable()
 export class MStatusService {
