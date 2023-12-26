@@ -20,9 +20,7 @@ export class BudgetUploadService {
     BudgetUploadService?.name;
   }
 
-  async convertBudgetUploadFromExcelToJson<T>(
-    req: Request,
-  ): Promise<any> {
+  async convertBudgetUploadFromExcelToJson<T>(req: Request): Promise<any> {
     try {
       const read = await this.excelService.readFormatExcel(req);
       // console.log(read);
@@ -242,53 +240,263 @@ export class BudgetUploadService {
         return categoryObject;
       };
 
-      const categories = Object.keys(groupedData).reduce((result, group) => {
-        const categoryObject = convertToCategoryObject(
-          group,
-          groupedData[group],
-          results,
-        );
+      const uniqueYears = await this.prisma.budget.findMany({
+        distinct: ['years'],
+        select: { years: true },
+      });
 
-        // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
-        result[group] = {
-          title: group,
-          total: categoryObject.total,
-          month: {
-            ...categoryObject.monthTotal,
-          },
-          groupDetail: Object.keys(categoryObject.details).map((detail) => {
-            const subcategoryObject = categoryObject.details[detail];
-            const subcategoryMonthTotalKey = `month${detail.replace(
-              /\s+/g,
-              '',
-            )}`;
-
-            return {
-              title: detail,
-              glNumber: subcategoryObject.glAccount,
-              total: subcategoryObject.total,
-              month: {
-                ...subcategoryObject[subcategoryMonthTotalKey],
+      const transformedData = uniqueYears.map(async (year) => {
+        const yearData = await this.prisma.budget.findMany({
+          where: { years: year.years },
+          include: {
+            mGlAccount: {
+              select: {
+                idGlAccount: true,
+                glAccount: true,
+                groupGl: true,
+                groupDetail: true,
               },
-            };
-          }),
+            },
+            mCostCenter: {
+              select: {
+                idCostCenter: true,
+                costCenter: true,
+                dinas: true,
+              },
+            },
+          },
+        });
+
+        const categories = Object.keys(groupedData).map((group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
+            yearData,
+          );
+
+          return {
+            title: group,
+            total: categoryObject.total,
+            month: { ...categoryObject.monthTotal },
+            groupDetail: Object.keys(categoryObject.details).map((detail) => {
+              const subcategoryObject = categoryObject.details[detail];
+              const subcategoryMonthTotalKey = `month${detail.replace(
+                /\s+/g,
+                '',
+              )}`;
+
+              return {
+                title: detail,
+                glNumber: subcategoryObject.glAccount,
+                total: subcategoryObject.total,
+                month: { ...subcategoryObject[subcategoryMonthTotalKey] },
+              };
+            }),
+          };
+        });
+
+        const DirectExpenses = {
+          title: 'All Direct Expenses',
+          total: getTotalSum(yearData),
+          month: getTotalSumByMonth(yearData),
         };
 
-        return result;
-      }, {});
+        return {
+          years: year.years,
+          data: [DirectExpenses, ...categories],
+        };
+      });
 
-      const DirectExpenses = {
-        title: 'All Direct Expenses',
-        total: getTotalSum(results),
-        month: getTotalSumByMonth(results),
-      };
-
-      const finalResult = [DirectExpenses, ...Object.values(categories)];
-
-      return finalResult;
+      return await Promise.all(transformedData);
     } catch (error) {
       console.log(error);
       throw new BadRequestException(error.message || error.stack);
+    }
+  }
+
+  async getAllBudget() {
+    try {
+      const allGlAccounts = await this.prisma.mGlAccount.findMany();
+      const groupedData = allGlAccounts.reduce((result, glAccount) => {
+        const { groupGl, groupDetail } = glAccount;
+
+        if (!result[groupGl]) {
+          result[groupGl] = [];
+        }
+
+        result[groupGl].push(groupDetail);
+
+        return result;
+      }, {});
+      const uniqueGroupGlValues = Object.keys(groupedData);
+
+      const months = [
+        'JANUARI',
+        'FEBRUARI',
+        'MARET',
+        'APRIL',
+        'MEI',
+        'JUNI',
+        'JULI',
+        'AGUSTUS',
+        'SEPTEMBER',
+        'OKTOBER',
+        'NOVEMBER',
+        'DESEMBER',
+      ];
+
+      function sumByGroup(results, group, detail = null) {
+        return results
+          .filter((item) =>
+            detail
+              ? item.mGlAccount.groupGl === group &&
+                item.mGlAccount.groupDetail === detail
+              : item.mGlAccount.groupGl === group,
+          )
+          .reduce((sum, item) => sum + item.total, 0);
+      }
+      function sumByGroupAndMonth(results, group, detail = null) {
+        return months.reduce((result, month, i) => {
+          result[month] = results
+            .filter((item) =>
+              detail
+                ? item.mGlAccount.groupGl === group &&
+                  item.mGlAccount.groupDetail === detail
+                : item.mGlAccount.groupGl === group,
+            )
+            .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
+          return result;
+        }, {});
+      }
+      function getGlAccount(results, group, detail) {
+        return results
+          .filter(
+            (item) =>
+              item.mGlAccount.groupGl === group &&
+              item.mGlAccount.groupDetail === detail,
+          )
+          .reduce((acc, item) => {
+            // Anda dapat menyesuaikan nilai sesuai kebutuhan
+            return parseInt(item.mGlAccount.glAccount);
+          }, {});
+      }
+      function getTotalSum(results) {
+        return uniqueGroupGlValues.reduce((total, group) => {
+          const groupTotal = sumByGroup(results, group);
+          return total + groupTotal;
+        }, 0);
+      }
+      function getTotalSumByMonth(results) {
+        return months.reduce((totalByMonth, month, i) => {
+          totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
+            return sum + sumByGroupAndMonth(results, group)[month];
+          }, 0);
+          return totalByMonth;
+        }, {});
+      }
+
+      //For Detail or Child or Nested
+      const createCategoryObject = (group, detail, results) => {
+        const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+        return {
+          glAccount: getGlAccount(results, group, detail),
+          total: sumByGroup(results, group, detail),
+          [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+        };
+      };
+
+      //For Parent
+      const convertToCategoryObject = (group, details, results) => {
+        const categoryObject = {
+          total: sumByGroup(results, group),
+          monthTotal: sumByGroupAndMonth(results, group),
+          details: {},
+        };
+
+        details.forEach((detail) => {
+          categoryObject.details[detail] = createCategoryObject(
+            group,
+            detail,
+            results,
+          );
+        });
+        return categoryObject;
+      };
+
+      const uniqueYears = await this.prisma.budget.findMany({
+        distinct: ['years'],
+        select: { years: true },
+      });
+
+      const transformedData = uniqueYears.map(async (year) => {
+        const yearData = await this.prisma.budget.findMany({
+          where: { years: year.years },
+          include: {
+            mGlAccount: {
+              select: {
+                idGlAccount: true,
+                glAccount: true,
+                groupGl: true,
+                groupDetail: true,
+              },
+            },
+            mCostCenter: {
+              select: {
+                idCostCenter: true,
+                costCenter: true,
+                dinas: true,
+              },
+            },
+          },
+        });
+
+        const categories = Object.keys(groupedData).map((group) => {
+          const categoryObject = convertToCategoryObject(
+            group,
+            groupedData[group],
+            yearData,
+          );
+
+          return {
+            title: group,
+            total: categoryObject.total,
+            month: { ...categoryObject.monthTotal },
+            groupDetail: Object.keys(categoryObject.details).map((detail) => {
+              const subcategoryObject = categoryObject.details[detail];
+              const subcategoryMonthTotalKey = `month${detail.replace(
+                /\s+/g,
+                '',
+              )}`;
+
+              return {
+                title: detail,
+                glNumber: subcategoryObject.glAccount,
+                total: subcategoryObject.total,
+                month: { ...subcategoryObject[subcategoryMonthTotalKey] },
+              };
+            }),
+          };
+        });
+
+        const DirectExpenses = {
+          title: 'All Direct Expenses',
+          total: getTotalSum(yearData),
+          month: getTotalSumByMonth(yearData),
+        };
+
+        return {
+          years: year.years,
+          data: [DirectExpenses, ...categories],
+        };
+      });
+
+      return { data: await Promise.all(transformedData) };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error; // NestJS will handle NotFoundException and send a 404 response
+      }
+      // Log the error or handle other types of errors
+      throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
     }
   }
 
@@ -303,7 +511,7 @@ export class BudgetUploadService {
         filter.years = +years; // konversi ke number jika diperlukan
       }
       if (costCenter) {
-        filter.mCostCenter = { dinas: costCenter }; // konversi ke number jika diperlukan
+        filter.mCostCenter = { dinas: costCenter };
       }
 
       // Panggil metode prisma atau logika lainnya dengan filter
@@ -337,7 +545,7 @@ export class BudgetUploadService {
       // Check if a percentage is provided and it is a valid number
       if (percentage && !isNaN(percentage)) {
         const multiplier = +percentage / 100; // Convert percentage to a multiplier
-        // Multiply each entry in results1 by the specified percentage
+        // Multiply each entry in results by the specified percentage
         const results1 = results.map((item) => {
           const updatedValues = {};
 
@@ -499,8 +707,10 @@ export class BudgetUploadService {
           month: getTotalSumByMonth(results1),
         };
 
-        return { data: [DirectExpenses, ...Object.values(categories)] };
-      } else {
+        const finalResult = [DirectExpenses, ...Object.values(categories)];
+
+        return finalResult;
+      } else{
         const allGlAccounts = await this.prisma.mGlAccount.findMany();
         const groupedData = allGlAccounts.reduce((result, glAccount) => {
           const { groupGl, groupDetail } = glAccount;
@@ -530,8 +740,8 @@ export class BudgetUploadService {
           'DESEMBER',
         ];
 
-        function sumByGroup(results, group, detail = null) {
-          return results
+        function sumByGroup(results1, group, detail = null) {
+          return results1
             .filter((item) =>
               detail
                 ? item.mGlAccount.groupGl === group &&
@@ -540,9 +750,9 @@ export class BudgetUploadService {
             )
             .reduce((sum, item) => sum + item.total, 0);
         }
-        function sumByGroupAndMonth(results, group, detail = null) {
+        function sumByGroupAndMonth(results1, group, detail = null) {
           return months.reduce((result, month, i) => {
-            result[month] = results
+            result[month] = results1
               .filter((item) =>
                 detail
                   ? item.mGlAccount.groupGl === group &&
@@ -553,8 +763,8 @@ export class BudgetUploadService {
             return result;
           }, {});
         }
-        function getGlAccount(results, group, detail) {
-          return results
+        function getGlAccount(results1, group, detail) {
+          return results1
             .filter(
               (item) =>
                 item.mGlAccount.groupGl === group &&
@@ -565,36 +775,36 @@ export class BudgetUploadService {
               return parseInt(item.mGlAccount.glAccount);
             }, {});
         }
-        function getTotalSum(results) {
+        function getTotalSum(results1) {
           return uniqueGroupGlValues.reduce((total, group) => {
-            const groupTotal = sumByGroup(results, group);
+            const groupTotal = sumByGroup(results1, group);
             return total + groupTotal;
           }, 0);
         }
-        function getTotalSumByMonth(results) {
+        function getTotalSumByMonth(results1) {
           return months.reduce((totalByMonth, month, i) => {
             totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
-              return sum + sumByGroupAndMonth(results, group)[month];
+              return sum + sumByGroupAndMonth(results1, group)[month];
             }, 0);
             return totalByMonth;
           }, {});
         }
 
         //For Detail or Child or Nested
-        const createCategoryObject = (group, detail, results) => {
+        const createCategoryObject = (group, detail, results1) => {
           const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
           return {
-            glAccount: getGlAccount(results, group, detail),
-            total: sumByGroup(results, group, detail),
-            [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+            glAccount: getGlAccount(results1, group, detail),
+            total: sumByGroup(results1, group, detail),
+            [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
           };
         };
 
         //For Parent
-        const convertToCategoryObject = (group, details, results) => {
+        const convertToCategoryObject = (group, details, results1) => {
           const categoryObject = {
-            total: sumByGroup(results, group),
-            monthTotal: sumByGroupAndMonth(results, group),
+            total: sumByGroup(results1, group),
+            monthTotal: sumByGroupAndMonth(results1, group),
             details: {},
           };
 
@@ -602,7 +812,7 @@ export class BudgetUploadService {
             categoryObject.details[detail] = createCategoryObject(
               group,
               detail,
-              results,
+              results1,
             );
           });
           return categoryObject;
@@ -662,4 +872,5 @@ export class BudgetUploadService {
       }
     }
   }
+
 }

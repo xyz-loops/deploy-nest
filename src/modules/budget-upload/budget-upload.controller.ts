@@ -48,7 +48,8 @@ export class BudgetUploadController {
       return res.status(400).json(error.response);
     }
   }
-  @Get('/all')
+
+  @Get('/all/filter')
   async findFilterBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
       const findFilterBudget =
@@ -64,5 +65,20 @@ export class BudgetUploadController {
     } catch (error) {
       return res.status(400).json(error.response);
     }
+  }
+
+  @Get('/all')
+  async findAllBudget(@Res() res: Response) {
+    try {
+      const findAllBudget = await this.budgetUploadService.getAllBudget();
+      return res.status(200).json({
+        data: findAllBudget,
+        meta: {
+          status: 'OK',
+        },
+        message: 'Data find all',
+        time: new Date(),
+      });
+    } catch (error) {}
   }
 }

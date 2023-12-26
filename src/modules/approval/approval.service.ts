@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApprovalDto, ApproveDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
@@ -208,7 +209,12 @@ export class ApprovalService {
         idRealization: id,
       },
       include: {
-        realizationItem: true,
+        m_cost_center: true,
+        realizationItem: {
+          include: {
+            m_gl_account: true,
+          },
+        },
       },
     });
 
