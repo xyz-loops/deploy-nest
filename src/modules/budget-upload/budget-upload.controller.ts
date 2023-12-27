@@ -81,4 +81,9 @@ export class BudgetUploadController {
       });
     } catch (error) {}
   }
+
+  @Get('/count')
+  findGroup(@Query() queryParams: any) {
+    return this.budgetUploadService.Counting(queryParams);
+  }
 }

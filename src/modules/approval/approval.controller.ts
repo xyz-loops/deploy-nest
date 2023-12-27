@@ -51,18 +51,13 @@ export class ApprovalController {
     return this.approvalService.approval(dto);
   }
 
-  @Get('remark/')
+  @Get('remark/:id')
   remark(
-    @Param('personalNumberTo') personalNumberTo: string,
+    @Param('id') id: number,
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
     @Query() queryParams: any,
   ) {
-    return this.approvalService.remark(
-      page,
-      orderBy,
-      personalNumberTo,
-      queryParams,
-    );
+    return this.approvalService.remark(+id, page, orderBy, queryParams);
   }
 }

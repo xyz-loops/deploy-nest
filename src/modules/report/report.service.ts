@@ -1,11 +1,15 @@
 import {
   BadRequestException,
+  HttpStatus,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
+import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
+import { MCostCenter } from '../m-cost-center/entities/m-cost-center.entity';
 
 @Injectable()
 export class ReportService {
@@ -237,6 +241,155 @@ export class ReportService {
       }
       // Log the error or handle other types of errors
       throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
+    }
+  }
+
+  async findAllWithPaginationAndFilter(
+    page: number,
+    order: string = 'asc',
+    queryParams: any,
+  ) {
+    try {
+      const perPage = 10;
+      if (!['asc', 'desc'].includes(order.toLowerCase())) {
+        throw new BadRequestException(
+          'Invalid order parameter. Use "asc" or "desc".',
+        );
+      }
+      // Filter logic
+      const {
+        dinas,
+        month,
+        years,
+        type,
+        status,
+        requestBy,
+        responsibleOfRequest,
+      } = queryParams;
+      let filter: any = {};
+      if (dinas) {
+        filter.m_cost_center = { dinas: dinas };
+      }
+      if (month) {
+        filter.month = +month;
+      }
+      if (years) {
+        filter.years = +years; // konversi ke number jika diperlukan
+      }
+      if (type) {
+        filter.type = type; // konversi ke number jika diperlukan
+      }
+      if (status) {
+        filter.status = status;
+      }
+      if (requestBy) {
+        filter.requestBy = requestBy; // konversi ke number jika diperlukan
+      }
+      if (responsibleOfRequest) {
+        filter.responsibleOfRequest = responsibleOfRequest;
+      }
+      // Count total items with applied filters
+      const totalItems = await this.prisma.realization.count({
+        where: filter,
+      });
+      const skip = (page - 1) * perPage;
+      // Determine the last available page
+      const lastPage = Math.ceil(totalItems / perPage);
+      // Check if the requested page exceeds the last available page
+      if (page > lastPage) {
+        return {
+          data: [],
+          meta: {
+            currentPage: Number(page),
+            totalItems,
+            lastpage: lastPage,
+            totalItemsPerPage: 0, // Set to 0 when the requested page exceeds the last available page
+          },
+          message: 'Pagination dashboard retrieved',
+          status: HttpStatus.OK,
+          time: new Date(),
+        };
+      }
+      const realization = await this.prisma.realization.findMany({
+        skip,
+        take: perPage,
+        orderBy: {
+          createdAt: order.toLowerCase() as SortOrder,
+        },
+        where: filter,
+        include: {
+          m_cost_center: {
+            select: {
+              idCostCenter: true,
+              costCenter: true,
+              description: true,
+              bidang: true,
+              dinas: true,
+              directorat: true,
+              groupDinas: true,
+              profitCenter: true,
+              active: true,
+            },
+          },
+          realizationItem: true,
+        },
+      });
+      // const remainingItems = totalItems % perPage;
+      const remainingItems = totalItems - skip;
+      const isLastPage = page * perPage >= totalItems;
+      const personalReport = realization.map((item) => {
+        const totalAmount = item.realizationItem.reduce(
+          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
+          0,
+        );
+
+        return {
+          idRealization: item.idRealization,
+          dinas: item.m_cost_center.dinas,
+          month: item.month,
+          years: item.years,
+          requestNumber: item.requestNumber,
+          typeSubmission: item.type,
+          submissionValue: totalAmount,
+          status: item.status,
+          requestBy: item.createdBy,
+          responsibleOfRequest: item.responsibleNopeg,
+          description: item.titleRequest,
+        };
+      });
+
+      const totalSubmissionValue = personalReport.reduce(
+        (total, item) => total + item.submissionValue,
+        0,
+      );
+      const totalItemsPerPage = isLastPage ? remainingItems : perPage;
+
+      return {
+        data: {
+          totalSubmissionValue,
+          data: personalReport},
+        meta: {
+          currentPage: Number(page),
+          totalItems,
+          lastpage: Math.ceil(totalItems / perPage),
+          // totalItemsPerPage: Number(isLastPage ? remainingItems : perPage),
+          totalItemsPerPage: Number(totalItemsPerPage),
+        },
+        message: 'Pagination dashboard retrieved',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      // Handle errors
+      if (error instanceof BadRequestException) {
+        throw new BadRequestException(
+          'Invalid filter parameters. ' + error.message,
+        );
+      } else {
+        throw new InternalServerErrorException(
+          'Internal Server Error: ' + error.message,
+        );
+      }
     }
   }
 

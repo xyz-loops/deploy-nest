@@ -11,6 +11,7 @@ import { BudgetUploadModule } from './modules/budget-upload/budget-upload.module
 import { RoleModule } from './modules/role/role.module';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { MDocCategoryModule } from './modules/m-doc-category/m-doc-category.module';
+import { ReportModule } from './modules/report/report.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MDocCategoryModule } from './modules/m-doc-category/m-doc-category.modu
     MGlAccountModule,
     MStatusModule,
     RealizationModule,
+    ReportModule,
     RoleModule,
   ],
   controllers: [AppController],

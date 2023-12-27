@@ -44,6 +44,19 @@ export class ReportController {
     }
   }
 
+  @Get('/summary')
+  findAllWithPaginationAndFilter(
+    @Query('page') page: number,
+    @Query('orderBy') orderBy: string,
+    @Query() queryParams: any,
+  ) {
+    return this.reportService.findAllWithPaginationAndFilter(
+      page,
+      orderBy,
+      queryParams,
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.reportService.findOne(+id);

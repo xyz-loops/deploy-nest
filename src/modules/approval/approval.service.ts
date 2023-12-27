@@ -258,16 +258,26 @@ export class ApprovalService {
   async approval(dto: ApproveDto) {
     const { idRealization, updateRealizationDto, approvalDto } = dto;
     const realization = await this.prisma.realization.findUnique({
-      where: { idRealization: idRealization },
+      where: { idRealization },
     });
 
     try {
       let personalNumberTo: string | null = null;
+      let departmentTo: string | null = null;
 
       if (updateRealizationDto.statusToId === null) {
         personalNumberTo = null;
-      } else if (updateRealizationDto.statusToId === 2) {
-        personalNumberTo = 'string';
+        departmentTo = null;
+      } else if (updateRealizationDto.statusToId === 4) {
+        personalNumberTo =
+          realization.roleAssignment['seniorManager']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['seniorManager']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 5) {
+        personalNumberTo =
+          realization.roleAssignment['vicePresident']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['vicePresident']?.personalUnit ?? null;
       }
 
       const updatedRealization = await this.prisma.realization.update({
@@ -276,8 +286,12 @@ export class ApprovalService {
           status: updateRealizationDto.status,
           statusId: updateRealizationDto.statusId,
           statusToId: updateRealizationDto.statusToId,
+          departmentTo: departmentTo,
           personalNumberTo: personalNumberTo,
           updatedBy: updateRealizationDto.updatedBy,
+          contributors: {
+            push: updateRealizationDto.updatedBy,
+          },
         },
       });
 
@@ -314,9 +328,9 @@ export class ApprovalService {
   }
 
   async remark(
+    id: number,
     page: number,
     order: string = 'asc',
-    personalNumberTo: string,
     queryParams: any,
   ) {
     try {
@@ -337,7 +351,7 @@ export class ApprovalService {
         filter.status = status;
       }
       if (statusTo) {
-        filter.unit = statusTo; // Assuming `statusTo` corresponds to `unit` in the `Approval` model
+        filter.unit = statusTo;
       }
 
       if (dateOfRemarkFrom && dateOfRemarkTo) {
@@ -353,10 +367,17 @@ export class ApprovalService {
         };
       }
 
+      const realization = await this.prisma.realization.findUnique({
+        where: {
+          idRealization: id,
+        },
+      });
+
       // Count total items with applied filters
       const totalItems = await this.prisma.approval.count({
         where: {
           ...filter,
+          tableId: realization.idRealization,
           remark: {
             not: null,
           },
@@ -388,48 +409,38 @@ export class ApprovalService {
         skip,
         take: perPage,
         orderBy: {
-          createdAt: order.toLowerCase() as SortOrder,
+          createdAt: order.toLowerCase() as 'asc' | 'desc',
         },
         where: {
           ...filter,
+          tableId: realization.idRealization,
           remark: {
             not: null,
           },
         },
       });
 
-      const realization = approvalList.map((approval) => approval.tableId);
-
-      const realizationList = await this.prisma.realization.findMany({
-        where: {
-          idRealization: {
-            in: realization,
-          },
-        },
-      });
-
-      const data = approvalList.map((approval) => {
-        const relatedRealization = realizationList.find(
-          (realization) => realization.idRealization === approval.tableId,
-        );
-
-        return {
-          dateOfRemark: approval.createdAt,
-          status: approval.status,
-          statusFrom: approval.createdBy,
-          departmentFrom: approval.unit,
-          remark: approval.remark,
-          statusTo: relatedRealization.createdBy,
-          departmentTo: relatedRealization.department,
-        };
-      });
+      const listRemark = approvalList.map((approval) => ({
+        idRemark: approval.idApproval,
+        dateOfRemark: approval.createdAt,
+        status: approval.status,
+        statusFrom: approval.createdBy,
+        departmentFrom: approval.unit,
+        remark: approval.remark,
+        statusTo: realization.personalNumberTo,
+        departmentTo: realization.departmentTo,
+      }));
 
       const remainingItems = totalItems - skip;
       const isLastPage = page * perPage >= totalItems;
       const totalItemsPerPage = isLastPage ? remainingItems : perPage;
 
       return {
-        data,
+        data: {
+          idRealization: realization.idRealization,
+          requestNumber: realization.requestNumber,
+          listRemark,
+        },
         meta: {
           currentPage: Number(page),
           totalItems,

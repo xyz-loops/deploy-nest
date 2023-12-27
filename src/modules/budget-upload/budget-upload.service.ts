@@ -710,7 +710,7 @@ export class BudgetUploadService {
         const finalResult = [DirectExpenses, ...Object.values(categories)];
 
         return finalResult;
-      } else{
+      } else {
         const allGlAccounts = await this.prisma.mGlAccount.findMany();
         const groupedData = allGlAccounts.reduce((result, glAccount) => {
           const { groupGl, groupDetail } = glAccount;
@@ -873,4 +873,48 @@ export class BudgetUploadService {
     }
   }
 
+  async Counting(queryParams) {
+    // Dapatkan nilai filter dari queryParams
+    const { groupGl, groupDetail } = queryParams;
+
+    // Logika filter sesuai dengan kebutuhan
+    let filter: any = {};
+    if (groupGl) {
+      filter.mGlAccount = { groupGl: groupGl }; // konversi ke number jika diperlukan
+    }
+    if (groupDetail) {
+      filter.mGlAccount = { groupDetail: groupDetail };
+    }
+
+    const result = await this.prisma.budget.findMany({
+      where: filter,
+      include: {
+        mGlAccount: {
+          select: {
+            idGlAccount: true,
+            groupDetail: true,
+            groupGl: true,
+          },
+        },
+      },
+    });
+
+    const date = new Date();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11, so we add 1
+    const BudgetMTD = result.reduce((sum, record) => {
+      for (let i = 1; i <= month; i++) {
+        sum += record['value' + (i < 10 ? '0' : '') + i] || 0; // add value of each month
+      }
+      return sum;
+    }, 0);
+    const BudgetYTD = result.reduce((sum, record) => sum + record.total, 0);
+
+    const finalResult = {
+      BudgetMTD: BudgetMTD,
+      BudgetYTD: BudgetYTD,
+      ActualYTD: 3000,
+    };
+    console.log(finalResult);
+    return result;
+  }
 }
