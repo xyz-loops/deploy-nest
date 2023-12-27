@@ -89,8 +89,8 @@ export class ReportService {
         'DESEMBER',
       ];
 
-      function sumByGroup(results1, group, detail = null) {
-        return results1
+      function sumByGroup(results, group, detail = null) {
+        return results
           .filter((item) =>
             detail
               ? item.mGlAccount.groupGl === group &&
@@ -99,9 +99,9 @@ export class ReportService {
           )
           .reduce((sum, item) => sum + item.total, 0);
       }
-      function sumByGroupAndMonth(results1, group, detail = null) {
+      function sumByGroupAndMonth(results, group, detail = null) {
         return months.reduce((result, month, i) => {
-          result[month] = results1
+          result[month] = results
             .filter((item) =>
               detail
                 ? item.mGlAccount.groupGl === group &&
@@ -112,8 +112,8 @@ export class ReportService {
           return result;
         }, {});
       }
-      function getGlAccount(results1, group, detail) {
-        return results1
+      function getGlAccount(results, group, detail) {
+        return results
           .filter(
             (item) =>
               item.mGlAccount.groupGl === group &&
@@ -124,36 +124,36 @@ export class ReportService {
             return parseInt(item.mGlAccount.glAccount);
           }, {});
       }
-      function getTotalSum(results1) {
+      function getTotalSum(results) {
         return uniqueGroupGlValues.reduce((total, group) => {
-          const groupTotal = sumByGroup(results1, group);
+          const groupTotal = sumByGroup(results, group);
           return total + groupTotal;
         }, 0);
       }
-      function getTotalSumByMonth(results1) {
+      function getTotalSumByMonth(results) {
         return months.reduce((totalByMonth, month, i) => {
           totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
-            return sum + sumByGroupAndMonth(results1, group)[month];
+            return sum + sumByGroupAndMonth(results, group)[month];
           }, 0);
           return totalByMonth;
         }, {});
       }
 
       //For Detail or Child or Nested
-      const createCategoryObject = (group, detail, results1) => {
+      const createCategoryObject = (group, detail, results) => {
         const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
         return {
-          glAccount: getGlAccount(results1, group, detail),
-          total: sumByGroup(results1, group, detail),
-          [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
+          glAccount: getGlAccount(results, group, detail),
+          total: sumByGroup(results, group, detail),
+          [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
         };
       };
 
       //For Parent
-      const convertToCategoryObject = (group, details, results1) => {
+      const convertToCategoryObject = (group, details, results) => {
         const categoryObject = {
-          total: sumByGroup(results1, group),
-          monthTotal: sumByGroupAndMonth(results1, group),
+          total: sumByGroup(results, group),
+          monthTotal: sumByGroupAndMonth(results, group),
           details: {},
         };
 
@@ -161,7 +161,7 @@ export class ReportService {
           categoryObject.details[detail] = createCategoryObject(
             group,
             detail,
-            results1,
+            results,
           );
         });
         return categoryObject;
