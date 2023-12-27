@@ -89,8 +89,8 @@ export class ReportService {
         'DESEMBER',
       ];
 
-      function sumByGroup(results, group, detail = null) {
-        return results
+      function sumByGroup(results1, group, detail = null) {
+        return results1
           .filter((item) =>
             detail
               ? item.mGlAccount.groupGl === group &&
@@ -99,9 +99,9 @@ export class ReportService {
           )
           .reduce((sum, item) => sum + item.total, 0);
       }
-      function sumByGroupAndMonth(results, group, detail = null) {
+      function sumByGroupAndMonth(results1, group, detail = null) {
         return months.reduce((result, month, i) => {
-          result[month] = results
+          result[month] = results1
             .filter((item) =>
               detail
                 ? item.mGlAccount.groupGl === group &&
@@ -112,8 +112,8 @@ export class ReportService {
           return result;
         }, {});
       }
-      function getGlAccount(results, group, detail) {
-        return results
+      function getGlAccount(results1, group, detail) {
+        return results1
           .filter(
             (item) =>
               item.mGlAccount.groupGl === group &&
@@ -124,36 +124,36 @@ export class ReportService {
             return parseInt(item.mGlAccount.glAccount);
           }, {});
       }
-      function getTotalSum(results) {
+      function getTotalSum(results1) {
         return uniqueGroupGlValues.reduce((total, group) => {
-          const groupTotal = sumByGroup(results, group);
+          const groupTotal = sumByGroup(results1, group);
           return total + groupTotal;
         }, 0);
       }
-      function getTotalSumByMonth(results) {
+      function getTotalSumByMonth(results1) {
         return months.reduce((totalByMonth, month, i) => {
           totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
-            return sum + sumByGroupAndMonth(results, group)[month];
+            return sum + sumByGroupAndMonth(results1, group)[month];
           }, 0);
           return totalByMonth;
         }, {});
       }
 
       //For Detail or Child or Nested
-      const createCategoryObject = (group, detail, results) => {
+      const createCategoryObject = (group, detail, results1) => {
         const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
         return {
-          glAccount: getGlAccount(results, group, detail),
-          total: sumByGroup(results, group, detail),
-          [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+          glAccount: getGlAccount(results1, group, detail),
+          total: sumByGroup(results1, group, detail),
+          [monthTotalKey]: sumByGroupAndMonth(results1, group, detail),
         };
       };
 
       //For Parent
-      const convertToCategoryObject = (group, details, results) => {
+      const convertToCategoryObject = (group, details, results1) => {
         const categoryObject = {
-          total: sumByGroup(results, group),
-          monthTotal: sumByGroupAndMonth(results, group),
+          total: sumByGroup(results1, group),
+          monthTotal: sumByGroupAndMonth(results1, group),
           details: {},
         };
 
@@ -161,80 +161,56 @@ export class ReportService {
           categoryObject.details[detail] = createCategoryObject(
             group,
             detail,
-            results,
+            results1,
           );
         });
         return categoryObject;
       };
 
-      const uniqueYears = await this.prisma.budget.findMany({
-        distinct: ['years'],
-        select: { years: true },
-      });
+      const categories = Object.keys(groupedData).reduce((result, group) => {
+        const categoryObject = convertToCategoryObject(
+          group,
+          groupedData[group],
+          results,
+        );
 
-      const transformedData = uniqueYears.map(async (year) => {
-        const yearData = await this.prisma.budget.findMany({
-          where: { years: year.years },
-          include: {
-            mGlAccount: {
-              select: {
-                idGlAccount: true,
-                glAccount: true,
-                groupGl: true,
-                groupDetail: true,
-              },
-            },
-            mCostCenter: {
-              select: {
-                idCostCenter: true,
-                costCenter: true,
-                dinas: true,
-              },
-            },
+        // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+        result[group] = {
+          title: group,
+          total: categoryObject.total,
+          month: {
+            ...categoryObject.monthTotal,
           },
-        });
+          groupDetail: Object.keys(categoryObject.details).map((detail) => {
+            const subcategoryObject = categoryObject.details[detail];
+            const subcategoryMonthTotalKey = `month${detail.replace(
+              /\s+/g,
+              '',
+            )}`;
 
-        const categories = Object.keys(groupedData).map((group) => {
-          const categoryObject = convertToCategoryObject(
-            group,
-            groupedData[group],
-            yearData,
-          );
-
-          return {
-            title: group,
-            total: categoryObject.total,
-            month: { ...categoryObject.monthTotal },
-            groupDetail: Object.keys(categoryObject.details).map((detail) => {
-              const subcategoryObject = categoryObject.details[detail];
-              const subcategoryMonthTotalKey = `month${detail.replace(
-                /\s+/g,
-                '',
-              )}`;
-
-              return {
-                title: detail,
-                glNumber: subcategoryObject.glAccount,
-                total: subcategoryObject.total,
-                month: { ...subcategoryObject[subcategoryMonthTotalKey] },
-              };
-            }),
-          };
-        });
-
-        const DirectExpenses = {
-          title: 'All Direct Expenses',
-          total: getTotalSum(yearData),
-          month: getTotalSumByMonth(yearData),
+            return {
+              title: detail,
+              glNumber: subcategoryObject.glAccount,
+              total: subcategoryObject.total,
+              month: {
+                ...subcategoryObject[subcategoryMonthTotalKey],
+              },
+            };
+          }),
         };
 
-        return {
-          years: year.years,
-          data: [DirectExpenses, ...categories],
-        };
-      });
+        return result;
+      }, {});
 
-      return { data: await Promise.all(transformedData) };
+      const DirectExpenses = {
+        title: 'All Direct Expenses',
+        total: getTotalSum(results),
+        month: getTotalSumByMonth(results),
+      };
+
+      const finalResult = [DirectExpenses, ...Object.values(categories)];
+
+      return finalResult;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error; // NestJS will handle NotFoundException and send a 404 response
@@ -283,10 +259,10 @@ export class ReportService {
         filter.status = status;
       }
       if (requestBy) {
-        filter.requestBy = requestBy; // konversi ke number jika diperlukan
+        filter.createdBy = requestBy; // konversi ke number jika diperlukan
       }
       if (responsibleOfRequest) {
-        filter.responsibleOfRequest = responsibleOfRequest;
+        filter.responsibleNopeg = responsibleOfRequest;
       }
       // Count total items with applied filters
       const totalItems = await this.prisma.realization.count({
@@ -367,7 +343,8 @@ export class ReportService {
       return {
         data: {
           totalSubmissionValue,
-          data: personalReport},
+          data: personalReport,
+        },
         meta: {
           currentPage: Number(page),
           totalItems,
@@ -386,9 +363,7 @@ export class ReportService {
           'Invalid filter parameters. ' + error.message,
         );
       } else {
-        throw new InternalServerErrorException(
-          'Internal Server Error: ' + error.message,
-        );
+        throw new InternalServerErrorException('Must Using Parameters');
       }
     }
   }

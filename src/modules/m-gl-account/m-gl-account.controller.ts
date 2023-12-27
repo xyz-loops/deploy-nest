@@ -33,7 +33,10 @@ export class MGlAccountController {
     return this.mGlAccountService.findOne(+id);
   }
 
-
+  @Get('all/group/')
+  findGroup() {
+    return this.mGlAccountService.groupingByGroup();
+  }
 
   @Get('all/group/:groupGl')
   findByBidang(@Param('groupGl') groupGl: string) {
