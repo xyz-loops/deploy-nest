@@ -46,7 +46,7 @@ export class ApprovalController {
     return this.approvalService.findOneApproval(+id);
   }
 
-  @Post('/reject')
+  @Post('/approve')
   async approval(@Body() dto: ApproveDto) {
     return this.approvalService.approval(dto);
   }
