@@ -327,19 +327,33 @@ export class ApprovalService {
   }
 
   async take(id: number, updateRealizationDto: UpdateRealizationDto) {
-    const existingRealization = await this.prisma.realization.findUnique({
+    const realization = await this.prisma.realization.findUnique({
       where: { idRealization: id },
     });
-    if (!existingRealization) {
+    if (!realization) {
       throw new NotFoundException(`Realization with ID ${id} not found`);
     }
     try {
+      let contributorsArray = realization.contributors || [];
+
+      if (
+        updateRealizationDto.personalNumberTo === null &&
+        contributorsArray.length > 0
+      ) {
+        contributorsArray.pop();
+      } else if (updateRealizationDto.personalNumberTo !== null) {
+        contributorsArray.push(updateRealizationDto.personalNumberTo);
+      }
+
       const updatedRealization = await this.prisma.realization.update({
         where: { idRealization: id },
         data: {
           status: updateRealizationDto.status,
           personalNumberTo: updateRealizationDto.personalNumberTo,
-          updatedBy: updateRealizationDto.personalNumberTo,
+          updatedBy: updateRealizationDto.updatedBy,
+          contributors: {
+            set: contributorsArray,
+          },
         },
       });
 

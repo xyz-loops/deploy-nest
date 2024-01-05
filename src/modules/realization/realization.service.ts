@@ -118,7 +118,7 @@ export class RealizationService {
               status: StatusEnum.OPEN,
               type: realizationData.type,
               roleAssignment: dtoRoleAssignment,
-              contributors: null,
+              // contributors: null,
               m_status_realization_id_statusTom_status: {
                 connect: {
                   idStatus: statusTom,

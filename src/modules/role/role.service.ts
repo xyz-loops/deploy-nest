@@ -1,8 +1,8 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { Observable, catchError, lastValueFrom, map, tap } from 'rxjs';
-import { AllRoleDto } from '../realization/dto/create-realization.dto';
 import { RoleDto } from './dto/role.dto';
+import { AllRoleDto } from '../realization/dto/create-realization.dto';
 
 @Injectable()
 export class RoleService {
@@ -45,7 +45,7 @@ export class RoleService {
         result2[role] ||= null;
     }
 
-    console.log(result2);
+    //console.log(result2);
     return result2;
   }
 }
