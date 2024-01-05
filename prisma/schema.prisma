@@ -133,20 +133,20 @@ model BudgetReallocation {
 }
 
 model FileUpload {
-  idUpload      Int    @id @default(autoincrement()) @map("id_upload")
-  uniqueId      String @unique @default(uuid()) @map("unique_id") @db.Uuid
-  tableName     String @map("table_name") @db.VarChar(20)
-  tableId       Int    @default(autoincrement()) @map("table_id") @db.Integer
-  docCategoryId Int    @map("doc_category_id") @db.Integer
-  docName       String @map("doc_name") @db.VarChar(100)
-  docLink       String @map("doc_link") @db.VarChar(255)
-  docSize       Float  @map("doc_size") @db.DoublePrecision
-  docType       String @map("doc_type") @db.VarChar(5)
-  department    String @map("department") @db.VarChar(5)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  createdBy String   @map("created_by") @db.VarChar(50)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  updatedBy String?  @map("updated_by") @db.VarChar(50)
+  idUpload      Int      @id @default(autoincrement()) @map("id_upload")
+  uniqueId      String   @unique @default(uuid()) @map("unique_id") @db.Uuid
+  tableName     String   @map("table_name") @db.VarChar(20)
+  tableId       Int      @default(autoincrement()) @map("table_id") @db.Integer
+  docCategoryId Int      @map("doc_category_id") @db.Integer
+  docName       String   @map("doc_name") @db.VarChar(100)
+  docLink       String   @map("doc_link") @db.VarChar(255)
+  docSize       Float    @map("doc_size") @db.DoublePrecision
+  docType       String   @map("doc_type") @db.VarChar(5)
+  department    String   @map("department") @db.VarChar(5)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy     String   @map("created_by") @db.VarChar(50)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  updatedBy     String?  @map("updated_by") @db.VarChar(50)
 
   mDocCategory MDocCategory @relation(fields: [docCategoryId], references: [idDocCategory], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_doc_category_to_file_upload")
 
@@ -158,7 +158,7 @@ model MDocCategory {
   idDocCategory Int       @id @default(autoincrement()) @map("id_doc_category")
   uniqueId      String    @unique @default(uuid()) @map("unique_id") @db.Uuid
   module        ModulEnum @default(OPEX) @map("module")
-  docCategory   String    @map("doc_category") @db.VarChar(20)
+  docCategory   String    @map("doc_category") @db.VarChar(200)
   description   String    @map("description") @db.VarChar(100)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   createdBy     String    @map("created_by") @db.VarChar(50)
@@ -378,6 +378,7 @@ model RealizationItem {
   amountSubmission  Float    @map("amount_submission") @db.DoublePrecision
   amountHps         Float?   @map("amount_hps") @db.DoublePrecision
   amountCorrection  Float?   @map("amount_correction") @db.DoublePrecision
+  amountApprove     Float?   @map("amount_approve") @db.DoublePrecision
   periodStart       DateTime @map("period_start") @db.Date
   periodFinish      DateTime @map("period_finish") @db.Date
   descPby           String   @map("desc_pby")

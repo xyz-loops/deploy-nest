@@ -51,6 +51,14 @@ export class ApprovalController {
     return this.approvalService.approval(dto);
   }
 
+  @Put('/take/:id')
+  async takeProject(
+    @Param('id') id: number,
+    @Body() updateRealizationDto: UpdateRealizationDto,
+  ) {
+    return this.approvalService.take(+id, updateRealizationDto);
+  }
+
   @Get('remark/:id')
   remark(
     @Param('id') id: number,

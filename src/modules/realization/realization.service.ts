@@ -7,19 +7,20 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/core/service/prisma.service';
 import {
+  AllRoleDto,
   CreateRealizationDto,
   CreateRealizationItemDto,
 } from './dto/create-realization.dto';
 import { CreateFileDto } from './dto/create-file-upload.dto';
 import { PrismaClient, Realization, StatusEnum } from '@prisma/client';
 import { UpdateRealizationDto } from './dto/update-realization.dto';
-import { UpdateFileDto } from './dto/update-file-upload.dto';
 import { lastValueFrom, tap } from 'rxjs';
 import { RoleService } from '../role/role.service';
+import { HttpService } from '@nestjs/axios';
 
 @Injectable()
 export class RealizationService {
-  httpService: any;
+  httpService: HttpService;
   prismaService: PrismaClient;
   constructor(
     private readonly prisma: PrismaService,
@@ -60,7 +61,7 @@ export class RealizationService {
     return department;
   }
 
-  async createRealization(
+  async createRealization<T>(
     createRealization: CreateRealizationDto,
     realizationItems: CreateRealizationItemDto[],
     uploadfile: CreateFileDto[],
@@ -77,27 +78,28 @@ export class RealizationService {
           let statusToTom: number = 2;
           let requestNumber: string | null = null;
           let roleAssignment: any = null;
-
+          let dtoRoleAssignment = null;
           let department = await this.generateDepartment(
             createRealization.costCenterId,
           );
 
           if (status && status == 'submit') {
             statusTom = 2;
-            statusToTom = 3;
+            statusToTom = 4;
             requestNumber = await this.generateRequestNumber(
               createRealization.costCenterId,
             );
 
-            roleAssignment = await this.roleService.sample(
+            roleAssignment = await this.roleService.getRole(
               createRealization.createdBy,
             );
+            dtoRoleAssignment = this.mapRoleAssignment(roleAssignment);
           }
 
           // Extract Realization data from the DTO
           const { ...realizationData } = createRealization;
 
-          // Create realization within the transaction
+          // // Create realization within the transaction
           const createdRealization = await prisma.realization.create({
             data: {
               years: new Date().getFullYear(),
@@ -109,17 +111,14 @@ export class RealizationService {
               noteRequest: realizationData.noteRequest,
               department: department,
               personalNumber: realizationData.personalNumber,
-              departmentTo: roleAssignment?.manager?.personalUnit || null,
-              personalNumberTo: roleAssignment?.manager?.personalNumber || null,
+              departmentTo: roleAssignment?.seniorManager?.personalUnit || null,
+              personalNumberTo:
+                roleAssignment?.seniorManager?.personalNumber || null,
               createdBy: realizationData.createdBy,
               status: StatusEnum.OPEN,
               type: realizationData.type,
-              roleAssignment:
-                {
-                  employee: roleAssignment?.employee,
-                  seniorManager: roleAssignment?.seniorManager,
-                  vicePresident: roleAssignment?.personalSuperior,
-                } || null,
+              roleAssignment: dtoRoleAssignment,
+              contributors: null,
               m_status_realization_id_statusTom_status: {
                 connect: {
                   idStatus: statusTom,
@@ -203,6 +202,17 @@ export class RealizationService {
     }
   }
 
+  private mapRoleAssignment(roleAssignment: any) {
+    const roleKeys = AllRoleDto.propertyNames;
+    const mappedRoleAssignment: any = {};
+
+    roleKeys.forEach((key) => {
+      mappedRoleAssignment[key] = roleAssignment?.[key] ?? null;
+    });
+
+    return mappedRoleAssignment;
+  }
+
   async findAllRealization() {
     const realization = await this.prisma.realization.findMany({
       include: {
@@ -248,7 +258,6 @@ export class RealizationService {
       },
     });
 
-    //abis where baru filter
     if (!realization) {
       throw new HttpException(
         {

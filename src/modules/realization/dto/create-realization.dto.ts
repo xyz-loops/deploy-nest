@@ -9,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { CreateFileDto } from 'src/modules/realization/dto/create-file-upload.dto';
+import { RoleDto } from 'src/modules/role/dto/role.dto';
 
 export class CreateRealizationDto {
   years: number;
@@ -51,10 +52,10 @@ export class CreateRealizationDto {
   readonly departmentTo: string;
 
   readonly personalNumberTo: string;
-  roleAssignment: JSON;
+  roleAssignment: AllRoleDto;
 
-  // @IsString()
-  // @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   createdBy: string;
 
   uploadfile: CreateFileDto[];
@@ -131,4 +132,20 @@ export class CreateRealizationItemDto {
       return item;
     });
   }
+}
+
+export class AllRoleDto {
+  employee: RoleDto;
+  seniorManager: RoleDto;
+  vicePresident: RoleDto;
+  employeeTAB: RoleDto;
+  vicePresidentTAB: RoleDto;
+
+  static propertyNames: (keyof AllRoleDto)[] = [
+    'employee',
+    'seniorManager',
+    'vicePresident',
+    'employeeTAB',
+    'vicePresidentTAB',
+  ];
 }

@@ -57,14 +57,19 @@ export class ReportController {
     );
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.reportService.findOne(+id);
+  @Get('all/requestby/')
+  findRequestBy() {
+    return this.reportService.groupingRequestBy();
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateReportDto: UpdateReportDto) {
-    return this.reportService.update(+id, updateReportDto);
+  @Get('all/responsible/')
+  findResponsibleNopeg() {
+    return this.reportService.groupingResponsibleNopeg();
+  }
+
+  @Get('/actual')
+  getRealization() {
+    return this.reportService.findRealizationWithPagination();
   }
 
   @Delete(':id')

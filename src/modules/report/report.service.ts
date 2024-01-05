@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   HttpStatus,
   Injectable,
   InternalServerErrorException,
@@ -368,8 +369,280 @@ export class ReportService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} report`;
+  async actualRealization() {
+    const realizationItemData = await this.prisma.realizationItem.findMany({
+      include: {
+        m_gl_account: true,
+        realization: {
+          include: {
+            m_cost_center: true,
+          },
+        },
+      },
+    });
+
+    const groupedItems = {};
+
+    realizationItemData.forEach((item) => {
+      const realization = item.realization;
+
+      if (!(realization.idRealization in groupedItems)) {
+        groupedItems[realization.idRealization] = {
+          years: realization.years,
+          idCostCenter: realization.costCenterId,
+          idGlAccount: item.glAccountId,
+          total: 0,
+          value1: 0,
+          value2: 0,
+          value3: 0,
+          value4: 0,
+          value5: 0,
+          value6: 0,
+          value7: 0,
+          value8: 0,
+          value9: 0,
+          value10: 0,
+          value11: 0,
+          value12: 0,
+          value13: null,
+          value14: null,
+          value15: null,
+          value16: null,
+          mGlAccount: {
+            glAccount: item.m_gl_account.glAccount,
+            groupGl: item.m_gl_account.groupGl,
+            groupDetail: item.m_gl_account.groupDetail,
+          },
+          mCostCenter: {
+            costCenter: realization.m_cost_center.costCenter,
+            dinas: realization.m_cost_center.dinas,
+          },
+        };
+      }
+
+      // Accumulate the value based on the month
+      groupedItems[realization.idRealization][`value${realization.month}`] +=
+        item.amount;
+      // Accumulate the totalValues
+      groupedItems[realization.idRealization].total += item.amount;
+    });
+
+    const results = Object.values(groupedItems);
+
+    // return results;
+
+    const allGlAccounts = await this.prisma.mGlAccount.findMany();
+    const groupedData = allGlAccounts.reduce((result, glAccount) => {
+      const { groupGl, groupDetail } = glAccount;
+
+      if (!result[groupGl]) {
+        result[groupGl] = [];
+      }
+
+      result[groupGl].push(groupDetail);
+
+      return result;
+    }, {});
+    const uniqueGroupGlValues = Object.keys(groupedData);
+
+    const months = [
+      'JANUARI',
+      'FEBRUARI',
+      'MARET',
+      'APRIL',
+      'MEI',
+      'JUNI',
+      'JULI',
+      'AGUSTUS',
+      'SEPTEMBER',
+      'OKTOBER',
+      'NOVEMBER',
+      'DESEMBER',
+    ];
+
+    function sumByGroup(results, group, detail = null) {
+      return results
+        .filter((item) =>
+          detail
+            ? item.mGlAccount.groupGl === group &&
+              item.mGlAccount.groupDetail === detail
+            : item.mGlAccount.groupGl === group,
+        )
+        .reduce((sum, item) => sum + item.total, 0);
+    }
+    function sumByGroupAndMonth(results, group, detail = null) {
+      return months.reduce((result, month, i) => {
+        result[month] = results
+          .filter((item) =>
+            detail
+              ? item.mGlAccount.groupGl === group &&
+                item.mGlAccount.groupDetail === detail
+              : item.mGlAccount.groupGl === group,
+          )
+          .reduce((sum, item) => sum + (item[`value${i + 1}`] || 0), 0);
+        return result;
+      }, {});
+    }
+    function getGlAccount(results, group, detail) {
+      return results
+        .filter(
+          (item) =>
+            item.mGlAccount.groupGl === group &&
+            item.mGlAccount.groupDetail === detail,
+        )
+        .reduce((acc, item) => {
+          // Anda dapat menyesuaikan nilai sesuai kebutuhan
+          return parseInt(item.mGlAccount.glAccount);
+        }, {});
+    }
+    function getTotalSum(results) {
+      return uniqueGroupGlValues.reduce((total, group) => {
+        const groupTotal = sumByGroup(results, group);
+        return total + groupTotal;
+      }, 0);
+    }
+    function getTotalSumByMonth(results) {
+      return months.reduce((totalByMonth, month, i) => {
+        totalByMonth[month] = uniqueGroupGlValues.reduce((sum, group) => {
+          return sum + sumByGroupAndMonth(results, group)[month];
+        }, 0);
+        return totalByMonth;
+      }, {});
+    }
+
+    //For Detail or Child or Nested
+    const createCategoryObject = (group, detail, results) => {
+      const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+      return {
+        glAccount: getGlAccount(results, group, detail),
+        total: sumByGroup(results, group, detail),
+        [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
+      };
+    };
+
+    //For Parent
+    const convertToCategoryObject = (group, details, results) => {
+      const categoryObject = {
+        total: sumByGroup(results, group),
+        monthTotal: sumByGroupAndMonth(results, group),
+        details: {},
+      };
+
+      details.forEach((detail) => {
+        categoryObject.details[detail] = createCategoryObject(
+          group,
+          detail,
+          results,
+        );
+      });
+      return categoryObject;
+    };
+
+    const categories = Object.keys(groupedData).reduce((result, group) => {
+      const categoryObject = convertToCategoryObject(
+        group,
+        groupedData[group],
+        results,
+      );
+
+      // Menghilangkan tingkat "details" dan menyertakan nilainya langsung
+      result[group] = {
+        title: group,
+        total: categoryObject.total,
+        month: {
+          ...categoryObject.monthTotal,
+        },
+        groupDetail: Object.keys(categoryObject.details).map((detail) => {
+          const subcategoryObject = categoryObject.details[detail];
+          const subcategoryMonthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+
+          return {
+            title: detail,
+            glNumber: subcategoryObject.glAccount,
+            total: subcategoryObject.total,
+            month: {
+              ...subcategoryObject[subcategoryMonthTotalKey],
+            },
+          };
+        }),
+      };
+
+      return result;
+    }, {});
+
+    const DirectExpenses = {
+      title: 'All Direct Expenses',
+      total: getTotalSum(results),
+      month: getTotalSumByMonth(results),
+    };
+
+    const finalResult = [DirectExpenses, ...Object.values(categories)];
+
+    return finalResult;
+  }
+
+  async findRealizationWithPagination(){
+    const result = this.actualRealization();
+
+    return result;
+  }
+
+  async groupingRequestBy() {
+    try {
+      const requestBy = await this.prisma.realization.findMany({
+        distinct: ['createdBy'],
+      });
+      const uniqueRequestBy = requestBy.map((requestBy) => requestBy.createdBy);
+
+      return {
+        data: uniqueRequestBy,
+        meta: null,
+        message: 'RequestBy',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to group RequestBy',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async groupingResponsibleNopeg() {
+    try {
+      const responsibleNopeg = await this.prisma.realization.findMany({
+        distinct: ['responsibleNopeg'],
+      });
+      const uniqueResponsibleNopeg = responsibleNopeg.map(
+        (responsibleNopeg) => responsibleNopeg.responsibleNopeg,
+      );
+
+      return {
+        data: uniqueResponsibleNopeg,
+        meta: null,
+        message: 'RequestBy',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to group RequestBy',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   update(id: number, updateReportDto: UpdateReportDto) {

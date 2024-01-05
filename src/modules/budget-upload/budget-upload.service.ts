@@ -536,6 +536,8 @@ export class BudgetUploadService {
         },
       });
 
+      console.log(results);
+
       if (!results || results.length === 0) {
         throw new NotFoundException(
           'No realizations found with the specified filter.',

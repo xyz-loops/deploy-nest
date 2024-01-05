@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { RoleService } from './role.service';
 import { Observable, map } from 'rxjs';
+import { RoleDto } from './dto/role.dto';
+import { AllRoleDto } from '../realization/dto/create-realization.dto';
 
 @Controller('role')
 export class RoleController {
@@ -17,7 +19,7 @@ export class RoleController {
   @Get(':personalNumber')
   async getSample(
     @Param('personalNumber') personalNumber: string,
-  ): Promise<any> {
-    return this.roleService.sample(personalNumber);
+  ): Promise<Partial<RoleDto>> {
+    return this.roleService.getRole(personalNumber);
   }
 }

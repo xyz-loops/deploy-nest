@@ -268,16 +268,14 @@ export class ApprovalService {
       if (updateRealizationDto.statusToId === null) {
         personalNumberTo = null;
         departmentTo = null;
-      } else if (updateRealizationDto.statusToId === 4) {
-        personalNumberTo =
-          realization.roleAssignment['seniorManager']?.personalNumber ?? null;
-        departmentTo =
-          realization.roleAssignment['seniorManager']?.personalUnit ?? null;
       } else if (updateRealizationDto.statusToId === 5) {
         personalNumberTo =
           realization.roleAssignment['vicePresident']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresident']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 6) {
+        personalNumberTo = null;
+        departmentTo = 'TAB';
       }
 
       const updatedRealization = await this.prisma.realization.update({
@@ -321,6 +319,47 @@ export class ApprovalService {
           message: 'Failed to update Realization and insert Approval',
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           time: new Date(),
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async take(id: number, updateRealizationDto: UpdateRealizationDto) {
+    const existingRealization = await this.prisma.realization.findUnique({
+      where: { idRealization: id },
+    });
+    if (!existingRealization) {
+      throw new NotFoundException(`Realization with ID ${id} not found`);
+    }
+    try {
+      const updatedRealization = await this.prisma.realization.update({
+        where: { idRealization: id },
+        data: {
+          status: updateRealizationDto.status,
+          personalNumberTo: updateRealizationDto.personalNumberTo,
+          updatedBy: updateRealizationDto.personalNumberTo,
+        },
+      });
+
+      return {
+        data: updatedRealization,
+        meta: null,
+        message: 'Realization took successfully',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to update Realization and insert Approval',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+          error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );

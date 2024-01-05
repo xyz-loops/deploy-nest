@@ -22,10 +22,8 @@ export class CreateFileDto {
   docType: string;
   department: string;
 
-  //files?: any;
-
-  //@IsNotEmpty()
-  // @IsString()
+  @IsNotEmpty()
+  @IsString()
   createdBy: string;
 
   static fromRequest(data: CreateFileDto[]): CreateFileDto[] {
