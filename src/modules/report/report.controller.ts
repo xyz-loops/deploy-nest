@@ -76,25 +76,25 @@ export class ReportController {
   //   return this.reportService.findRealizationWithPagination();
   // }
 
-  @Get('/actual')
-  async findFilterActual(@Query() queryParams: any, @Res() res: Response) {
-    try {
-      const findActual =
-        await this.reportService.actualRealization(queryParams);
-      return res.status(200).json({
-        budget: findActual,
-        // actual: findActual,
-        remaining: null,
-        meta: {
-          status: 'OK',
-        },
-        message: 'Data found',
-        time: new Date(),
-      });
-    } catch (error) {
-      return res.status(400).json(error.response);
-    }
-  }
+  // @Get('/actual')
+  // async findFilterActual(@Query() queryParams: any, @Res() res: Response) {
+  //   try {
+  //     const findActual =
+  //       await this.reportService.actualRealization(queryParams);
+  //     return res.status(200).json({
+  //       budget: findActual,
+  //       // actual: findActual,
+  //       remaining: null,
+  //       meta: {
+  //         status: 'OK',
+  //       },
+  //       message: 'Data found',
+  //       time: new Date(),
+  //     });
+  //   } catch (error) {
+  //     return res.status(400).json(error.response);
+  //   }
+  // }
 
   @Delete(':id')
   remove(@Param('id') id: string) {

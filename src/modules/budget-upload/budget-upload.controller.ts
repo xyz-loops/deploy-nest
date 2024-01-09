@@ -54,8 +54,12 @@ export class BudgetUploadController {
     try {
       const findFilterBudget =
         await this.budgetUploadService.findAllRealization(queryParams);
+      const findActual =
+        await this.budgetUploadService.actualRealization(queryParams);
       return res.status(200).json({
-        data: findFilterBudget,
+        budget: findFilterBudget,
+        actual: findActual,
+        remaining: null,
         meta: {
           status: 'OK',
         },

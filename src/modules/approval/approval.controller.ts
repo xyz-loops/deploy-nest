@@ -27,12 +27,16 @@ export class ApprovalController {
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
     @Query() queryParams: any,
+    @Query('isTAB') isTAB: boolean,
+    @Query('isTXC-3') isTXC_3: boolean,
   ) {
     return this.approvalService.findAllWithPaginationAndFilter(
       page,
       orderBy,
       personalNumberTo,
       queryParams,
+      isTAB,
+      isTXC_3,
     );
   }
 

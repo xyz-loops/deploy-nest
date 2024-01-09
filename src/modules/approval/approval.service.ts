@@ -53,6 +53,8 @@ export class ApprovalService {
     order: string = 'asc',
     personalNumberTo: string,
     queryParams: any,
+    isTAB: boolean,
+    isTXC_3: boolean,
   ) {
     try {
       const perPage = 10;
@@ -107,12 +109,33 @@ export class ApprovalService {
         };
       }
 
-      // Count total items with applied filters
-      const totalItems = await this.prisma.realization.count({
-        where: {
+      let conditions: any;
+      if (isTAB) {
+        conditions = {
+          ...filter,
+          OR: [
+            { personalNumberTo: personalNumberTo },
+            { personalNumberTo: null, departmentTo: 'TAB' },
+          ],
+        };
+      } else if (isTXC_3) {
+        conditions = {
+          ...filter,
+          OR: [
+            { personalNumberTo: personalNumberTo },
+            { personalNumberTo: null, departmentTo: 'TXC_3' },
+          ],
+        };
+      } else {
+        conditions = {
           ...filter,
           personalNumberTo: personalNumberTo,
-        },
+        };
+      }
+
+      // Count total items with applied filters
+      const totalItems = await this.prisma.realization.count({
+        where: conditions,
       });
 
       const skip = (page - 1) * perPage;
@@ -142,10 +165,7 @@ export class ApprovalService {
         orderBy: {
           createdAt: order.toLowerCase() as SortOrder,
         },
-        where: {
-          ...filter,
-          personalNumberTo: personalNumberTo,
-        },
+        where: conditions,
         include: {
           realizationItem: true,
         },
@@ -281,6 +301,24 @@ export class ApprovalService {
       } else if (updateRealizationDto.statusToId === 6) {
         personalNumberTo = null;
         departmentTo = 'TAB';
+      } else if (updateRealizationDto.statusToId === 7) {
+        personalNumberTo =
+          realization.roleAssignment['SM_TAB']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['SM_TAB']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 8) {
+        personalNumberTo =
+          realization.roleAssignment['vicePresidentTA']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['vicePresidentTA']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 9) {
+        personalNumberTo = null;
+        departmentTo = 'TXC - 3';
+      } else if (updateRealizationDto.statusToId === 10) {
+        personalNumberTo =
+          realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
       }
 
       const updatedRealization = await this.prisma.realization.update({
