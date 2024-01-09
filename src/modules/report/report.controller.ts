@@ -31,8 +31,12 @@ export class ReportController {
     try {
       const findFilterBudget =
         await this.reportService.getAllBudget(queryParams);
+      const findActual =
+        await this.reportService.actualRealization(queryParams);
       return res.status(200).json({
-        data: findFilterBudget,
+        budget: findFilterBudget,
+        actual: findActual,
+        remaining: null,
         meta: {
           status: 'OK',
         },
@@ -50,7 +54,7 @@ export class ReportController {
     @Query('orderBy') orderBy: string,
     @Query() queryParams: any,
   ) {
-    return this.reportService.findAllWithPaginationAndFilter(
+    return this.reportService.findRealizationWithPaginationAndFilter(
       page,
       orderBy,
       queryParams,
@@ -67,9 +71,29 @@ export class ReportController {
     return this.reportService.groupingResponsibleNopeg();
   }
 
+  // @Get('/actual')
+  // getRealization() {
+  //   return this.reportService.findRealizationWithPagination();
+  // }
+
   @Get('/actual')
-  getRealization() {
-    return this.reportService.findRealizationWithPagination();
+  async findFilterActual(@Query() queryParams: any, @Res() res: Response) {
+    try {
+      const findActual =
+        await this.reportService.actualRealization(queryParams);
+      return res.status(200).json({
+        budget: findActual,
+        // actual: findActual,
+        remaining: null,
+        meta: {
+          status: 'OK',
+        },
+        message: 'Data found',
+        time: new Date(),
+      });
+    } catch (error) {
+      return res.status(400).json(error.response);
+    }
   }
 
   @Delete(':id')

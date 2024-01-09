@@ -39,7 +39,7 @@ export class RoleService {
       vicePresident: data2.data.body.personalSuperior,
     } as RoleDto;
 
-    //result2.map(async);
+    //result2.map(async);w
     for (const role in RoleDto) {
       if (Object.prototype.hasOwnProperty.call(RoleDto, role))
         result2[role] ||= null;

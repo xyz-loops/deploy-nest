@@ -5,33 +5,30 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
-import { MCostCenter } from '../m-cost-center/entities/m-cost-center.entity';
+import * as countHelper from 'src/core/utils/counthelper';
 
 @Injectable()
 export class ReportService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(createReportDto: CreateReportDto) {
-    return 'This action adds a new report';
-  }
-
   async getAllBudget(queryParams: any) {
     try {
       // Dapatkan nilai filter dari queryParams
-      const { years, costCenter } = queryParams;
+      const { years, dinas } = queryParams;
 
       // Logika filter sesuai dengan kebutuhan
       let filter: any = {};
       if (years) {
         filter.years = +years; // konversi ke number jika diperlukan
       }
-      if (costCenter) {
-        filter.mCostCenter = { dinas: costCenter };
+      if (dinas) {
+        filter.mCostCenter = { dinas: dinas };
       }
 
       // Panggil metode prisma atau logika lainnya dengan filter
@@ -56,25 +53,6 @@ export class ReportService {
         },
       });
 
-      if (!results || results.length === 0) {
-        throw new NotFoundException(
-          'No realizations found with the specified filter.',
-        );
-      }
-      const allGlAccounts = await this.prisma.mGlAccount.findMany();
-      const groupedData = allGlAccounts.reduce((result, glAccount) => {
-        const { groupGl, groupDetail } = glAccount;
-
-        if (!result[groupGl]) {
-          result[groupGl] = [];
-        }
-
-        result[groupGl].push(groupDetail);
-
-        return result;
-      }, {});
-      const uniqueGroupGlValues = Object.keys(groupedData);
-
       const months = [
         'JANUARI',
         'FEBRUARI',
@@ -89,6 +67,33 @@ export class ReportService {
         'NOVEMBER',
         'DESEMBER',
       ];
+
+      if (!results || results.length === 0) {
+        // const publicFinalResult = [
+        //   {
+        //     title: 'All Direct Expenses',
+        //     total: 0,
+        //     month: months.reduce((acc, month) => {
+        //       acc[month] = 0;
+        //       return acc;
+        //     }, {}),
+        //   },
+        // ];
+      }
+
+      const allGlAccounts = await this.prisma.mGlAccount.findMany();
+      const groupedData = allGlAccounts.reduce((result, glAccount) => {
+        const { groupGl, groupDetail } = glAccount;
+
+        if (!result[groupGl]) {
+          result[groupGl] = [];
+        }
+
+        result[groupGl].push(groupDetail);
+
+        return result;
+      }, {});
+      const uniqueGroupGlValues = Object.keys(groupedData);
 
       function sumByGroup(results, group, detail = null) {
         return results
@@ -209,9 +214,9 @@ export class ReportService {
         month: getTotalSumByMonth(results),
       };
 
-      const finalResult = [DirectExpenses, ...Object.values(categories)];
+      const publicfinalResult = [DirectExpenses, ...Object.values(categories)];
 
-      return finalResult;
+      return publicfinalResult;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error; // NestJS will handle NotFoundException and send a 404 response
@@ -221,161 +226,34 @@ export class ReportService {
     }
   }
 
-  async findAllWithPaginationAndFilter(
-    page: number,
-    order: string = 'asc',
-    queryParams: any,
-  ) {
-    try {
-      const perPage = 10;
-      if (!['asc', 'desc'].includes(order.toLowerCase())) {
-        throw new BadRequestException(
-          'Invalid order parameter. Use "asc" or "desc".',
-        );
-      }
-      // Filter logic
-      const {
-        dinas,
-        month,
-        years,
-        type,
-        status,
-        requestBy,
-        responsibleOfRequest,
-      } = queryParams;
-      let filter: any = {};
-      if (dinas) {
-        filter.m_cost_center = { dinas: dinas };
-      }
-      if (month) {
-        filter.month = +month;
-      }
-      if (years) {
-        filter.years = +years; // konversi ke number jika diperlukan
-      }
-      if (type) {
-        filter.type = type; // konversi ke number jika diperlukan
-      }
-      if (status) {
-        filter.status = status;
-      }
-      if (requestBy) {
-        filter.createdBy = requestBy; // konversi ke number jika diperlukan
-      }
-      if (responsibleOfRequest) {
-        filter.responsibleNopeg = responsibleOfRequest;
-      }
-      // Count total items with applied filters
-      const totalItems = await this.prisma.realization.count({
-        where: filter,
-      });
-      const skip = (page - 1) * perPage;
-      // Determine the last available page
-      const lastPage = Math.ceil(totalItems / perPage);
-      // Check if the requested page exceeds the last available page
-      if (page > lastPage) {
-        return {
-          data: [],
-          meta: {
-            currentPage: Number(page),
-            totalItems,
-            lastpage: lastPage,
-            totalItemsPerPage: 0, // Set to 0 when the requested page exceeds the last available page
-          },
-          message: 'Pagination dashboard retrieved',
-          status: HttpStatus.OK,
-          time: new Date(),
-        };
-      }
-      const realization = await this.prisma.realization.findMany({
-        skip,
-        take: perPage,
-        orderBy: {
-          createdAt: order.toLowerCase() as SortOrder,
-        },
-        where: filter,
-        include: {
-          m_cost_center: {
-            select: {
-              idCostCenter: true,
-              costCenter: true,
-              description: true,
-              bidang: true,
-              dinas: true,
-              directorat: true,
-              groupDinas: true,
-              profitCenter: true,
-              active: true,
-            },
-          },
-          realizationItem: true,
-        },
-      });
-      // const remainingItems = totalItems % perPage;
-      const remainingItems = totalItems - skip;
-      const isLastPage = page * perPage >= totalItems;
-      const personalReport = realization.map((item) => {
-        const totalAmount = item.realizationItem.reduce(
-          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
-          0,
-        );
+  async actualRealization(queryParams: any) {
+    const { years, dinas } = queryParams;
 
-        return {
-          idRealization: item.idRealization,
-          dinas: item.m_cost_center.dinas,
-          month: item.month,
-          years: item.years,
-          requestNumber: item.requestNumber,
-          typeSubmission: item.type,
-          submissionValue: totalAmount,
-          status: item.status,
-          requestBy: item.createdBy,
-          responsibleOfRequest: item.responsibleNopeg,
-          description: item.titleRequest,
-        };
-      });
-
-      const totalSubmissionValue = personalReport.reduce(
-        (total, item) => total + item.submissionValue,
-        0,
-      );
-      const totalItemsPerPage = isLastPage ? remainingItems : perPage;
-
-      return {
-        data: {
-          totalSubmissionValue,
-          data: personalReport,
-        },
-        meta: {
-          currentPage: Number(page),
-          totalItems,
-          lastpage: Math.ceil(totalItems / perPage),
-          // totalItemsPerPage: Number(isLastPage ? remainingItems : perPage),
-          totalItemsPerPage: Number(totalItemsPerPage),
-        },
-        message: 'Pagination dashboard retrieved',
-        status: HttpStatus.OK,
-        time: new Date(),
-      };
-    } catch (error) {
-      // Handle errors
-      if (error instanceof BadRequestException) {
-        throw new BadRequestException(
-          'Invalid filter parameters. ' + error.message,
-        );
-      } else {
-        throw new InternalServerErrorException('Must Using Parameters');
-      }
+    let filter: any = {};
+    if (years) {
+      filter.realization = { years: +years };
     }
-  }
+    if (dinas) {
+      filter.realization = {
+        ...filter.realization,
+        m_cost_center: {
+          dinas: dinas,
+        },
+      };
+    }
 
-  async actualRealization() {
     const realizationItemData = await this.prisma.realizationItem.findMany({
+      where: filter,
       include: {
         m_gl_account: true,
         realization: {
           include: {
-            m_cost_center: true,
+            m_cost_center: {
+              select: {
+                costCenter: true,
+                dinas: true,
+              },
+            },
           },
         },
       },
@@ -428,8 +306,6 @@ export class ReportService {
     });
 
     const results = Object.values(groupedItems);
-
-    // return results;
 
     const allGlAccounts = await this.prisma.mGlAccount.findMany();
     const groupedData = allGlAccounts.reduce((result, glAccount) => {
@@ -576,15 +452,207 @@ export class ReportService {
       month: getTotalSumByMonth(results),
     };
 
-    const finalResult = [DirectExpenses, ...Object.values(categories)];
+    const publicfinalResultActual = [
+      DirectExpenses,
+      ...Object.values(categories),
+    ];
 
-    return finalResult;
+    return publicfinalResultActual;
   }
 
-  async findRealizationWithPagination(){
-    const result = this.actualRealization();
+  private getMonthAbbreviation(month: number): string {
+    const monthNames = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    if (month >= 1 && month <= 12) {
+      return monthNames[month - 1];
+    }
+    return ''; // Return empty string for invalid months
+  }
 
-    return result;
+  private getMonthIndex(month: string): number | null {
+    const monthNames = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+
+    const monthIndex = monthNames.findIndex(
+      (m) => m.toLowerCase() === month.toLowerCase(),
+    );
+    return monthIndex !== -1 ? monthIndex + 1 : null;
+  }
+
+  async findRealizationWithPaginationAndFilter(
+    page: number,
+    order: string = 'asc',
+    queryParams: any,
+  ) {
+    try {
+      const perPage = 10;
+      if (!['asc', 'desc'].includes(order.toLowerCase())) {
+        throw new BadRequestException(
+          'Invalid order parameter. Use "asc" or "desc".',
+        );
+      }
+      // Filter logic
+      const {
+        dinas,
+        month,
+        years,
+        type,
+        status,
+        requestBy,
+        responsibleOfRequest,
+      } = queryParams;
+      let filter: any = {};
+      if (dinas) {
+        filter.m_cost_center = { dinas: dinas };
+      }
+      if (month) {
+        // Cek apakah nilai month adalah angka atau nama bulan
+        const monthIndex = this.getMonthIndex(month);
+        if (monthIndex !== null) {
+          filter.month = monthIndex;
+        }
+      }
+      if (years) {
+        filter.years = +years; // konversi ke number jika diperlukan
+      }
+      if (type) {
+        filter.type = type; // konversi ke number jika diperlukan
+      }
+      if (status) {
+        filter.status = status;
+      }
+      if (requestBy) {
+        filter.createdBy = requestBy; // konversi ke number jika diperlukan
+      }
+      if (responsibleOfRequest) {
+        filter.responsibleNopeg = responsibleOfRequest;
+      }
+      // Count total items with applied filters
+      const totalItems = await this.prisma.realization.count({
+        where: filter,
+      });
+      const skip = (page - 1) * perPage;
+      // Determine the last available page
+      const lastPage = Math.ceil(totalItems / perPage);
+      // Check if the requested page exceeds the last available page
+      if (page > lastPage) {
+        return {
+          data: [],
+          meta: {
+            currentPage: Number(page),
+            totalItems,
+            lastpage: lastPage,
+            totalItemsPerPage: 0, // Set to 0 when the requested page exceeds the last available page
+          },
+          message: 'Pagination dashboard retrieved',
+          status: HttpStatus.OK,
+          time: new Date(),
+        };
+      }
+      const realization = await this.prisma.realization.findMany({
+        skip,
+        take: perPage,
+        orderBy: {
+          createdAt: order.toLowerCase() as SortOrder,
+        },
+        where: filter,
+        include: {
+          m_cost_center: {
+            select: {
+              idCostCenter: true,
+              costCenter: true,
+              description: true,
+              bidang: true,
+              dinas: true,
+              directorat: true,
+              groupDinas: true,
+              profitCenter: true,
+              active: true,
+            },
+          },
+          realizationItem: true,
+        },
+      });
+      // const remainingItems = totalItems % perPage;
+      const remainingItems = totalItems - skip;
+      const isLastPage = page * perPage >= totalItems;
+      const personalReport = realization.map((item) => {
+        const totalAmount = item.realizationItem.reduce(
+          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
+          0,
+        );
+
+        return {
+          idRealization: item.idRealization,
+          dinas: item.m_cost_center.dinas,
+          month: this.getMonthAbbreviation(item.month),
+          years: item.years,
+          requestNumber: item.requestNumber,
+          typeSubmission: item.type,
+          submissionValue: totalAmount,
+          status: item.status,
+          requestBy: item.createdBy,
+          responsibleOfRequest: item.responsibleNopeg,
+          description: item.titleRequest,
+        };
+      });
+
+      const totalSubmissionValue = personalReport.reduce(
+        (total, item) => total + item.submissionValue,
+        0,
+      );
+      const totalItemsPerPage = isLastPage ? remainingItems : perPage;
+
+      return {
+        data: {
+          totalSubmissionValue,
+          data: personalReport,
+        },
+        meta: {
+          currentPage: Number(page),
+          totalItems,
+          lastpage: Math.ceil(totalItems / perPage),
+          // totalItemsPerPage: Number(isLastPage ? remainingItems : perPage),
+          totalItemsPerPage: Number(totalItemsPerPage),
+        },
+        message: 'Pagination dashboard retrieved',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    } catch (error) {
+      // Handle errors
+      if (error instanceof BadRequestException) {
+        throw new BadRequestException(
+          'Invalid filter parameters. ' + error.message,
+        );
+      } else {
+        throw new InternalServerErrorException('Must Using Parameters');
+      }
+    }
   }
 
   async groupingRequestBy() {
@@ -651,5 +719,12 @@ export class ReportService {
 
   remove(id: number) {
     return `This action removes a #${id} report`;
+  }
+
+  async create(createReportDto: CreateReportDto) {
+    const allGlAccounts = await this.prisma.mGlAccount.findMany();
+    const groupedData = countHelper.getGroupedData(allGlAccounts);
+    console.log(allGlAccounts);
+    return groupedData;
   }
 }

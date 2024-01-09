@@ -260,6 +260,11 @@ export class ApprovalService {
     const realization = await this.prisma.realization.findUnique({
       where: { idRealization },
     });
+    if (!realization) {
+      throw new NotFoundException(
+        `Realization with id ${idRealization} not found`,
+      );
+    }
 
     try {
       let personalNumberTo: string | null = null;
