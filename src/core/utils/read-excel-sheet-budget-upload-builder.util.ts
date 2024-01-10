@@ -31,7 +31,7 @@ export class ReadExcelSheetBudgetUploadBuilder {
     columns.forEach((col, index): void => {
       //dganti 66 = b code CHARCODE
       //Mulai column index berapa
-      columnToKey[String.fromCharCode(65 + index)] = camelCase(col);
+      columnToKey[String.fromCharCode(66 + index)] = camelCase(col);
     });
 
     this.sheet.columnToKey = columnToKey;

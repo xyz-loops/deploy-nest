@@ -214,9 +214,9 @@ export class ReportService {
         month: getTotalSumByMonth(results),
       };
 
-      const publicfinalResult = [DirectExpenses, ...Object.values(categories)];
+      const finalResult = [DirectExpenses, ...Object.values(categories)];
 
-      return publicfinalResult;
+      return finalResult;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error; // NestJS will handle NotFoundException and send a 404 response
@@ -226,7 +226,7 @@ export class ReportService {
     }
   }
 
-  async actualRealization(queryParams: any) {
+  async getActualRealization(queryParams: any) {
     const { years, dinas } = queryParams;
 
     let filter: any = {};
@@ -452,12 +452,12 @@ export class ReportService {
       month: getTotalSumByMonth(results),
     };
 
-    const publicfinalResultActual = [
+    const finalResult = [
       DirectExpenses,
       ...Object.values(categories),
     ];
 
-    return publicfinalResultActual;
+    return finalResult;
   }
 
   private getMonthAbbreviation(month: number): string {
@@ -503,7 +503,7 @@ export class ReportService {
     return monthIndex !== -1 ? monthIndex + 1 : null;
   }
 
-  async findRealizationWithPaginationAndFilter(
+  async findRealizationFilter(
     page: number,
     order: string = 'asc',
     queryParams: any,

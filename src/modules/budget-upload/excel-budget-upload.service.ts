@@ -52,7 +52,7 @@ export class ExcelBudgetUploadService {
 
       const result = await lastValueFrom(data);
       // await fs.remove(filePath);
-
+      // console.log(req?.body?.years);
       return result;
     } catch (error) {
       const filePath: string = req?.file?.path;

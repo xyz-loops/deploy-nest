@@ -53,9 +53,9 @@ export class BudgetUploadController {
   async findFilterBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
       const findFilterBudget =
-        await this.budgetUploadService.findAllRealization(queryParams);
+        await this.budgetUploadService.viewBudget(queryParams);
       const findActual =
-        await this.budgetUploadService.actualRealization(queryParams);
+        await this.budgetUploadService.getActualRealization(queryParams);
       return res.status(200).json({
         budget: findFilterBudget,
         actual: findActual,
@@ -87,7 +87,18 @@ export class BudgetUploadController {
   }
 
   @Get('/count')
-  findGroup(@Query() queryParams: any) {
-    return this.budgetUploadService.Counting(queryParams);
+  async countIndicator(@Query() queryParams: any) {
+    const budget = await this.budgetUploadService.countingBudget(queryParams);
+    const actual =
+      await this.budgetUploadService.countingRealization(queryParams);
+    return {
+      // data: budget,
+      data2: actual,
+      meta: {
+        status: 'OK',
+      },
+      message: 'Data has been converted & saved',
+      time: new Date(),
+    };
   }
 }

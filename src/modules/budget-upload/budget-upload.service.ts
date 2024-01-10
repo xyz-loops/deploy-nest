@@ -24,23 +24,41 @@ export class BudgetUploadService {
     try {
       const read = await this.excelService.readFormatExcel(req);
       // console.log(read);
+
       if (!read?.budgetUpload)
         throw new BadRequestException(
           'Failed to read Excel, sheetname invalid',
         );
       const items: ItemsBudgetUploadDto[] = read?.budgetUpload;
-      const years1 = req?.body?.years;
+      const years = req?.body?.years ? Number(req?.body?.years) : undefined;
       const createdBy = req?.body?.createdBy;
       // await this.prisma.budget.deleteMany();
 
+      // Find existing data for the same years, costCenterId, and glAccountId
+      const existingData = await this.prisma.budget.findMany({
+        where: {
+          years,
+        },
+      });
+
+      // If existing data found, delete it
+      if (existingData.length > 0) {
+        await this.prisma.budget.deleteMany({
+          where: {
+            years,
+          },
+        });
+      }
+
       const results = await Promise.all(
         items?.map(async (item) => {
+          item.years = years;
           const dataCostCenters = await this.prisma.mCostCenter.findMany({
             select: {
               idCostCenter: true,
             },
             where: {
-              dinas: String(item.costCenterId),
+              costCenter: String(item.costCenterId),
             },
           });
 
@@ -53,24 +71,8 @@ export class BudgetUploadService {
             },
           });
 
-          // Cari data dengan tahun yang sama
-          const existingData = await this.prisma.budget.findMany({
-            where: {
-              years: Number(item.years),
-            },
-          });
-
-          if (existingData.length > 0) {
-            // Hapus data lama
-            await this.prisma.budget.deleteMany({
-              where: {
-                years: Number(item.years),
-              },
-            });
-          }
-
           const data = {
-            years: item.years,
+            years,
             costCenterId: Number(dataCostCenters?.[0]?.idCostCenter),
             glAccountId: Number(dataGlAccount?.[0]?.idGlAccount),
             total: parseFloat(
@@ -105,7 +107,6 @@ export class BudgetUploadService {
             updatedAt: new Date(),
             createdBy: item.createdBy,
           };
-
           const prismaResult = await this.prisma.budget.create({
             data: {
               ...data,
@@ -129,6 +130,9 @@ export class BudgetUploadService {
               },
             },
           });
+
+          console.log(prismaResult);
+
           return prismaResult;
         }),
       );
@@ -500,18 +504,18 @@ export class BudgetUploadService {
     }
   }
 
-  async findAllRealization(queryParams: any) {
+  async viewBudget(queryParams: any) {
     try {
       // Dapatkan nilai filter dari queryParams
-      const { years, costCenter, percentage } = queryParams;
+      const { years, dinas, percentage } = queryParams;
 
       // Logika filter sesuai dengan kebutuhan
       let filter: any = {};
       if (years) {
         filter.years = +years; // konversi ke number jika diperlukan
       }
-      if (costCenter) {
-        filter.mCostCenter = { dinas: costCenter };
+      if (dinas) {
+        filter.mCostCenter = { dinas: dinas };
       }
 
       // Panggil metode prisma atau logika lainnya dengan filter
@@ -536,12 +540,17 @@ export class BudgetUploadService {
         },
       });
 
-      console.log(results);
-
       if (!results || results.length === 0) {
-        throw new NotFoundException(
-          'No realizations found with the specified filter.',
-        );
+        // const publicFinalResult = [
+        //   {
+        //     title: 'All Direct Expenses',
+        //     total: 0,
+        //     month: months.reduce((acc, month) => {
+        //       acc[month] = 0;
+        //       return acc;
+        //     }, {}),
+        //   },
+        // ];
       }
 
       // Check if a percentage is provided and it is a valid number
@@ -875,7 +884,7 @@ export class BudgetUploadService {
     }
   }
 
-  async actualRealization(queryParams: any) {
+  async getActualRealization(queryParams: any) {
     const { years, dinas } = queryParams;
 
     let filter: any = {};
@@ -1101,15 +1110,12 @@ export class BudgetUploadService {
       month: getTotalSumByMonth(results),
     };
 
-    const publicfinalResultActual = [
-      DirectExpenses,
-      ...Object.values(categories),
-    ];
+    const finalResult = [DirectExpenses, ...Object.values(categories)];
 
-    return publicfinalResultActual;
+    return finalResult;
   }
 
-  async Counting(queryParams) {
+  async countingBudget(queryParams) {
     // Dapatkan nilai filter dari queryParams
     const { groupGl, groupDetail } = queryParams;
 
@@ -1150,7 +1156,104 @@ export class BudgetUploadService {
       BudgetYTD: BudgetYTD,
       ActualYTD: 3000,
     };
-    console.log(finalResult);
-    return result;
+    // console.log(result);
+    return finalResult;
+  }
+
+  async countingRealization(queryParams) {
+    // Dapatkan nilai filter dari queryParams
+    const { groupGl, groupDetail } = queryParams;
+
+    // Logika filter sesuai dengan kebutuhan
+    let filter: any = {};
+    if (groupGl) {
+      filter.m_gl_account = { groupGl: groupGl }; // konversi ke number jika diperlukan
+    }
+    if (groupDetail) {
+      filter.m_gl_account = { groupDetail: groupDetail };
+    }
+
+    const realizationItemData = await this.prisma.realizationItem.findMany({
+      where: filter,
+      include: {
+        m_gl_account: true,
+        realization: {
+          include: {
+            m_cost_center: {
+              select: {
+                costCenter: true,
+                dinas: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const groupedItems = {};
+
+    realizationItemData.forEach((item) => {
+      const realization = item.realization;
+
+      if (!(realization.idRealization in groupedItems)) {
+        groupedItems[realization.idRealization] = {
+          years: realization.years,
+          idCostCenter: realization.costCenterId,
+          idGlAccount: item.glAccountId,
+          total: 0,
+          value1: 0,
+          value2: 0,
+          value3: 0,
+          value4: 0,
+          value5: 0,
+          value6: 0,
+          value7: 0,
+          value8: 0,
+          value9: 0,
+          value10: 0,
+          value11: 0,
+          value12: 0,
+          value13: null,
+          value14: null,
+          value15: null,
+          value16: null,
+          mGlAccount: {
+            glAccount: item.m_gl_account.glAccount,
+            groupGl: item.m_gl_account.groupGl,
+            groupDetail: item.m_gl_account.groupDetail,
+          },
+          mCostCenter: {
+            costCenter: realization.m_cost_center.costCenter,
+            dinas: realization.m_cost_center.dinas,
+          },
+        };
+      }
+
+      // Accumulate the value based on the month
+      groupedItems[realization.idRealization][`value${realization.month}`] +=
+        item.amount;
+      // Accumulate the totalValues
+      groupedItems[realization.idRealization].total += item.amount;
+    });
+
+    const results = Object.values(groupedItems);
+    console.log(results);
+
+    const date = new Date();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11, so we add 1
+    const ActualMTD = results.reduce((sum, record) => {
+      for (let i = 1; i <= month; i++) {
+        sum += record['value' + (i < 10 ? '0' : '') + i] || 0; // add value of each month
+      }
+      return sum;
+    }, 0);
+    // const BudgetYTD = result.reduce((sum, record) => sum + record.total, 0);
+
+    const finalResult = {
+      ActualMTD: ActualMTD,
+      // BudgetYTD: BudgetYTD,
+      ActualYTD: 3000,
+    };
+    return results;
   }
 }

@@ -7,6 +7,7 @@ import { Request } from 'express';
 import { ReadBudgetUploadSheetDto } from 'src/modules/budget-upload/dto/read-budget-upload.dto';
 import { BudgetUploadSheetsDto } from 'src/modules/budget-upload/dto/budget-upload-sheets.dto';
 import { Observable, lastValueFrom, mergeMap, of } from 'rxjs';
+import { Console } from 'console';
 
 @Injectable()
 export class BudgetUploadProcessExcelToJsonBuilder {
@@ -56,7 +57,7 @@ export class BudgetUploadProcessExcelToJsonBuilder {
   ): this {
     const columnName: string =
       //CHARCODE -1 = A
-      sheetConfig.columnToKey[String.fromCharCode(64 + cellIndex)];
+      sheetConfig.columnToKey[String.fromCharCode(65 + cellIndex)];
     if (!columnName) return;
 
     const columnConfig: ColumnDto = sheetConfig.columns[columnName];
@@ -74,7 +75,7 @@ export class BudgetUploadProcessExcelToJsonBuilder {
     if (Object(cellValue).toString().startsWith('Invalid')) {
       this.errorSheetName.push(sheetConfig.name);
       this.errorMessages.push({
-        [`column[${String.fromCharCode(64 + cellIndex)}]`]:
+        [`column[${String.fromCharCode(65 + cellIndex)}]`]:
           `${columnName} cell format categories must be general* on row ${cell.row}`,
       });
       return this;
@@ -89,7 +90,7 @@ export class BudgetUploadProcessExcelToJsonBuilder {
     ) {
       this.errorSheetName.push(sheetConfig.name);
       this.errorMessages.push({
-        [`column[${String.fromCharCode(64 + cellIndex)}]`]:
+        [`column[${String.fromCharCode(65 + cellIndex)}]`]:
           `${columnName} must be of type ${
             dataType === 'Object' ? 'string' : dataType
           }* or length limit is ${maxLength}* on row ${cell.row}`,
@@ -141,12 +142,10 @@ export class BudgetUploadProcessExcelToJsonBuilder {
   }
 
   async build<T>(req: Request): Promise<ReadBudgetUploadSheetDto> {
-    const years: number = req?.body['years'];
     const workbook: Workbook = new Workbook();
     await workbook.xlsx.readFile(String(this.filePath));
     // console.log(this.filePath);
     // console.log(this.sheets);
-    // console.log(years);
 
     const data: ReadBudgetUploadSheetDto = {
       budgetUpload: null,

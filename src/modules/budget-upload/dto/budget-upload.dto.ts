@@ -13,6 +13,7 @@ import { StringNumberBigintObject } from 'src/core/types/string-number-bigint-ob
 export class ItemsBudgetUploadDto {
   @IsNotEmpty()
   @IsNumber()
+  @Type(() => Number)
   years: number;
 
   @IsNotEmpty()
