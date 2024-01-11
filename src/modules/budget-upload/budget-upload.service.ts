@@ -130,9 +130,6 @@ export class BudgetUploadService {
               },
             },
           });
-
-          console.log(prismaResult);
-
           return prismaResult;
         }),
       );
@@ -1237,7 +1234,6 @@ export class BudgetUploadService {
     });
 
     const results = Object.values(groupedItems);
-    console.log(results);
 
     const date = new Date();
     const month = date.getMonth() + 1; // getMonth() returns 0-11, so we add 1

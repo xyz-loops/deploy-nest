@@ -8,6 +8,7 @@ import {
   Delete,
   Put,
   Query,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { ApprovalService } from './approval.service';
 import { ApprovalDto, ApproveDto } from './dto/create-approval.dto';
@@ -27,8 +28,8 @@ export class ApprovalController {
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
     @Query() queryParams: any,
-    @Query('isTAB') isTAB: boolean,
-    @Query('isTXC-3') isTXC_3: boolean,
+    @Query('isTAB', ParseBoolPipe) isTAB: boolean,
+    @Query('isTXC-3', ParseBoolPipe) isTXC3: boolean,
   ) {
     return this.approvalService.findAllWithPaginationAndFilter(
       page,
@@ -36,7 +37,7 @@ export class ApprovalController {
       personalNumberTo,
       queryParams,
       isTAB,
-      isTXC_3,
+      isTXC3,
     );
   }
 
