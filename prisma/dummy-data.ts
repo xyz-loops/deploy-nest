@@ -111,7 +111,6 @@ export const status = [
 
 export const glAccount = [
   {
-    idGlAccount: 1,
     glAccount: 40010001,
     groupDetail: 'Expendable-Material',
     groupGl: 'Material Expenses',
@@ -120,7 +119,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 2,
     glAccount: 40012000,
     groupDetail: 'Repairable-Material',
     groupGl: 'Material Expenses',
@@ -129,7 +127,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 3,
     glAccount: 40020001,
     groupDetail: 'Rotable parts-Subcont',
     groupGl: 'Subcontract Expenses',
@@ -138,7 +135,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 4,
     glAccount: 40014200,
     groupDetail: 'Repairable parts-Subcont',
     groupGl: 'Subcontract Expenses',
@@ -147,7 +143,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 5,
     glAccount: 40000000,
     groupDetail: 'Base salary',
     groupGl: 'Staff Expenses',
@@ -156,7 +151,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 6,
     glAccount: 40002002,
     groupDetail: 'Honorarium',
     groupGl: 'Staff Expenses',
@@ -165,7 +159,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 7,
     glAccount: 40000400,
     groupDetail: 'Travel',
     groupGl: 'Company accommodation',
@@ -174,7 +167,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 8,
     glAccount: 40000403,
     groupDetail: 'Transport',
     groupGl: 'Company accommodation',
@@ -183,7 +175,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 9,
     glAccount: 40030000,
     groupDetail: 'Rotable part',
     groupGl: 'Depreciation & amortisation',
@@ -192,7 +183,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 10,
     glAccount: 40030001,
     groupDetail: 'Amortization',
     groupGl: 'Depreciation & amortisation',
@@ -201,7 +191,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 11,
     glAccount: 40040000,
     groupDetail: 'Maintenance and repair-Hangar',
     groupGl: 'Facility Maintenance expenses',
@@ -210,7 +199,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 12,
     glAccount: 40040005,
     groupDetail: 'Maintenance and repair-Hardware',
     groupGl: 'Facility Maintenance expenses',
@@ -219,7 +207,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 13,
     glAccount: 40041002,
     groupDetail: 'Building-Rental',
     groupGl: 'Rental expenses',
@@ -229,7 +216,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 14,
     glAccount: 40041000,
     groupDetail: 'Component-Rental',
     groupGl: 'Rental expenses',
@@ -239,7 +225,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 15,
     glAccount: 40043000,
     groupDetail: 'Electricity consumption',
     groupGl: 'Other operating expenses',
@@ -249,7 +234,6 @@ export const glAccount = [
     createdBy: '582127',
   },
   {
-    idGlAccount: 16,
     glAccount: 40043006,
     groupDetail: 'Gas',
     groupGl: 'Other operating expenses',

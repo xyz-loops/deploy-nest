@@ -552,7 +552,7 @@ export class BudgetUploadService {
 
       // Check if a percentage is provided and it is a valid number
       if (percentage && !isNaN(percentage)) {
-        const multiplier = +percentage / 100; // Convert percentage to a multiplier
+        const multiplier = 1 - +percentage / 100; // Convert percentage to a multiplier
         // Multiply each entry in results by the specified percentage
         const results1 = results.map((item) => {
           const updatedValues = {};
@@ -1044,8 +1044,13 @@ export class BudgetUploadService {
     //For Detail or Child or Nested
     const createCategoryObject = (group, detail, results) => {
       const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+      const glNumber = getGlAccount(results, group, detail);
       return {
-        glAccount: getGlAccount(results, group, detail),
+        glAccount:
+          typeof glNumber === 'number' ||
+          (typeof glNumber === 'object' && Object.keys(glNumber).length !== 0)
+            ? glNumber
+            : '-',
         total: sumByGroup(results, group, detail),
         [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
       };
@@ -1109,51 +1114,6 @@ export class BudgetUploadService {
 
     const finalResult = [DirectExpenses, ...Object.values(categories)];
 
-    return finalResult;
-  }
-
-  async countingBudget(queryParams) {
-    // Dapatkan nilai filter dari queryParams
-    const { groupGl, groupDetail } = queryParams;
-
-    // Logika filter sesuai dengan kebutuhan
-    let filter: any = {};
-    if (groupGl) {
-      filter.mGlAccount = { groupGl: groupGl }; // konversi ke number jika diperlukan
-    }
-    if (groupDetail) {
-      filter.mGlAccount = { groupDetail: groupDetail };
-    }
-
-    const result = await this.prisma.budget.findMany({
-      where: filter,
-      include: {
-        mGlAccount: {
-          select: {
-            idGlAccount: true,
-            groupDetail: true,
-            groupGl: true,
-          },
-        },
-      },
-    });
-
-    const date = new Date();
-    const month = date.getMonth() + 1; // getMonth() returns 0-11, so we add 1
-    const BudgetMTD = result.reduce((sum, record) => {
-      for (let i = 1; i <= month; i++) {
-        sum += record['value' + (i < 10 ? '0' : '') + i] || 0; // add value of each month
-      }
-      return sum;
-    }, 0);
-    const BudgetYTD = result.reduce((sum, record) => sum + record.total, 0);
-
-    const finalResult = {
-      BudgetMTD: BudgetMTD,
-      BudgetYTD: BudgetYTD,
-      ActualYTD: 3000,
-    };
-    // console.log(result);
     return finalResult;
   }
 
@@ -1231,25 +1191,92 @@ export class BudgetUploadService {
         item.amount;
       // Accumulate the totalValues
       groupedItems[realization.idRealization].total += item.amount;
-    });
 
     const results = Object.values(groupedItems);
 
-    const date = new Date();
-    const month = date.getMonth() + 1; // getMonth() returns 0-11, so we add 1
-    const ActualMTD = results.reduce((sum, record) => {
-      for (let i = 1; i <= month; i++) {
-        sum += record['value' + (i < 10 ? '0' : '') + i] || 0; // add value of each month
-      }
-      return sum;
-    }, 0);
-    // const BudgetYTD = result.reduce((sum, record) => sum + record.total, 0);
-
-    const finalResult = {
-      ActualMTD: ActualMTD,
-      // BudgetYTD: BudgetYTD,
-      ActualYTD: 3000,
-    };
     return results;
+  }
+
+  // async countingBudget(queryParams) {
+  //   // Dapatkan nilai filter dari queryParams
+  //   const { groupGl, groupDetail } = queryParams;
+
+  //   // Logika filter sesuai dengan kebutuhan
+  //   let filter: any = {};
+  //   if (groupGl) {
+  //     filter.mGlAccount = { groupGl: groupGl };
+  //   }
+  //   if (groupDetail) {
+  //     filter.mGlAccount = { groupDetail: groupDetail };
+  //   }
+
+  //   const result = await this.prisma.budget.findMany({
+  //     where: filter,
+  //     include: {
+  //       mGlAccount: {
+  //         select: {
+  //           idGlAccount: true,
+  //           groupDetail: true,
+  //           groupGl: true,
+  //         },
+  //       },
+  //     },
+  //   });
+  // }
+  async countingBudget(queryParams) {
+    // Dapatkan nilai filter dari queryParams
+    const { groupGl, groupDetail } = queryParams;
+
+    // Logika filter sesuai dengan kebutuhan
+    let filter: any = {};
+    if (groupGl) {
+      filter.mGlAccount = { groupGl: groupGl };
+    }
+    if (groupDetail) {
+      filter.mGlAccount = { groupDetail: groupDetail };
+    }
+
+    const result = await this.prisma.budget.findMany({
+      where: filter,
+      include: {
+        mGlAccount: {
+          select: {
+            idGlAccount: true,
+            groupDetail: true,
+            groupGl: true,
+          },
+        },
+      },
+    });
+
+    // Perhitungan MTD dan YTD
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1; // Bulan dimulai dari 0 (Januari) hingga 11 (Desember)
+    const currentYear = today.getFullYear();
+
+    let mtdTotal = 0;
+    let ytdTotal = 0;
+
+    for (const budget of result) {
+      // Mendapatkan bulan dan tahun dari tanggal anggaran
+      const budgetDate = new Date(budget.createdAt);
+      const budgetMonth = budgetDate.getMonth() + 1;
+      const budgetYear = budgetDate.getFullYear();
+
+      // Perhitungan MTD
+      if (budgetYear === currentYear && budgetMonth === currentMonth) {
+        mtdTotal += budget.total;
+      }
+
+      // Perhitungan YTD
+      if (budgetYear === currentYear && budgetMonth <= currentMonth) {
+        ytdTotal += budget.total;
+      }
+    }
+
+    return {mtdTotal, ytdTotal}
+
+    console.log('MTD Total:', mtdTotal);
+    console.log('YTD Total:', ytdTotal);
   }
 }

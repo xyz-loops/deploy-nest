@@ -92,7 +92,7 @@ export class BudgetUploadController {
     const actual =
       await this.budgetUploadService.countingRealization(queryParams);
     return {
-      // data: budget,
+      data: budget,
       data2: actual,
       meta: {
         status: 'OK',

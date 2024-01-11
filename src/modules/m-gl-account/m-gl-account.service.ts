@@ -15,6 +15,7 @@ export class MGlAccountService {
 
   async create(createMGlAccountDto: CreateMGlAccountDto) {
     try {
+      console.log(createMGlAccountDto);
       const mGlAccount = await this.prisma.mGlAccount.create({
         data: createMGlAccountDto,
       });

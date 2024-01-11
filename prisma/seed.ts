@@ -36,6 +36,7 @@ async function seedStatus() {
 }
 
 async function main() {
+  await deleteExistingData();
   await seedGlAccounts();
   await seedCostCenters();
   await seedDocCategories();
