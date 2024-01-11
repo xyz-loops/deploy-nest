@@ -1192,6 +1192,24 @@ export class BudgetUploadService {
       // Accumulate the totalValues
       groupedItems[realization.idRealization].total += item.amount;
 
+      const today = new Date();
+      const currentMonth = today.getMonth() + 1;
+      if (
+        realization.years === today.getFullYear() &&
+        realization.month === currentMonth
+      ) {
+        groupedItems[realization.idRealization].mtdTotal += item.amount;
+      }
+
+      // Menambahkan nilai untuk YTD jika tahun sama atau sebelum tahun saat ini
+      if (
+        realization.years <= today.getFullYear() &&
+        realization.month <= currentMonth
+      ) {
+        groupedItems[realization.idRealization].ytdTotal += item.amount;
+      }
+    });
+
     const results = Object.values(groupedItems);
 
     return results;
@@ -1274,7 +1292,7 @@ export class BudgetUploadService {
       }
     }
 
-    return {mtdTotal, ytdTotal}
+    return { mtdTotal, ytdTotal };
 
     console.log('MTD Total:', mtdTotal);
     console.log('YTD Total:', ytdTotal);
