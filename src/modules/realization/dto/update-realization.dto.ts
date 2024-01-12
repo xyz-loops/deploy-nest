@@ -18,8 +18,7 @@ export class UpdateRealizationDto {
 
   requestNumber: String;
 
-  @Type(() => Number)
-  taReff: number;
+  taReff: string;
 
   @IsOptional()
   @IsEnum(RealizationTypeEnum)

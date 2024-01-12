@@ -60,8 +60,10 @@ export class ApprovalController {
   async takeProject(
     @Param('id') id: number,
     @Body() updateRealizationDto: UpdateRealizationDto,
+    @Query('isTAB', ParseBoolPipe) isTAB: boolean,
+    @Query('isTXC-3', ParseBoolPipe) isTXC3: boolean,
   ) {
-    return this.approvalService.take(+id, updateRealizationDto);
+    return this.approvalService.take(+id, updateRealizationDto, isTAB, isTXC3);
   }
 
   @Get('remark/:id')

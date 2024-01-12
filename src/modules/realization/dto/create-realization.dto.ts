@@ -22,8 +22,7 @@ export class CreateRealizationDto {
   requestNumber: number;
   draftNumber: number;
 
-  @Type(() => Number)
-  taReff: number;
+  taReff: string;
 
   @IsOptional()
   @IsEnum(RealizationTypeEnum)
@@ -66,7 +65,6 @@ export class CreateRealizationDto {
     data.years = Number(data.years);
     data.month = Number(data.month);
     data.costCenterId = Number(data.costCenterId);
-    data.taReff = Number(data.taReff);
 
     if (Array.isArray(data.realizationItems)) {
       data.realizationItems = CreateRealizationItemDto.fromRequestArray(

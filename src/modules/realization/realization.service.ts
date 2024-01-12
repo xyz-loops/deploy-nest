@@ -69,7 +69,7 @@ export class RealizationService {
   ) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Transaction timeout')), 10000),
+        setTimeout(() => reject(new Error('Transaction timeout')), 60000),
       );
 
       const transactionPromise = this.prisma.$transaction(
@@ -118,7 +118,7 @@ export class RealizationService {
               status: StatusEnum.OPEN,
               type: realizationData.type,
               roleAssignment: dtoRoleAssignment,
-              // contributors: null,
+              //contributors: null,
               m_status_realization_id_statusTom_status: {
                 connect: {
                   idStatus: statusTom,
@@ -175,7 +175,7 @@ export class RealizationService {
           };
         },
         {
-          timeout: 100000, // default: 5000
+          timeout: 600000, // default: 5000
         },
       );
 

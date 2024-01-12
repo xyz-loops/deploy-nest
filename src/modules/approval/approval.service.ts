@@ -13,10 +13,16 @@ import { StatusEnum } from '@prisma/client';
 import { UpdateRealizationDto } from '../realization/dto/update-realization.dto';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 import { status } from 'prisma/dummy-data';
+import { HttpService } from '@nestjs/axios';
+import { RoleService } from '../role/role.service';
 
 @Injectable()
 export class ApprovalService {
-  constructor(private readonly prisma: PrismaService) {}
+  httpService: HttpService;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleService: RoleService,
+  ) {}
 
   async countNeedApproval(personalNumberTo: string) {
     try {
@@ -54,7 +60,7 @@ export class ApprovalService {
     personalNumberTo: string,
     queryParams: any,
     isTAB: boolean,
-    isTXC_3: boolean,
+    isTXC3: boolean,
   ) {
     try {
       const perPage = 10;
@@ -118,7 +124,7 @@ export class ApprovalService {
             { personalNumberTo: null, departmentTo: 'TAB' },
           ],
         };
-      } else if (isTXC_3 === true) {
+      } else if (isTXC3 === true) {
         conditions = {
           ...filter,
           OR: [
@@ -175,30 +181,37 @@ export class ApprovalService {
       const remainingItems = totalItems - skip;
       const isLastPage = page * perPage >= totalItems;
 
-      const realizationWithFileUpload = realization.map((realizationItem) => {
-        const totalAmount = realizationItem.realizationItem.reduce(
-          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
-          0,
-        );
+      const realizationData = await Promise.all(
+        realization.map(async (realizationItem) => {
+          const totalAmount = realizationItem.realizationItem.reduce(
+            (accumulator, currentItem) =>
+              accumulator + (currentItem.amount || 0),
+            0,
+          );
+          const name =
+            realizationItem.personalNumberTo !== null
+              ? await this.roleService.getName(realizationItem.personalNumberTo)
+              : null;
 
-        return {
-          idRealization: realizationItem.idRealization,
-          taReff: realizationItem.taReff,
-          requestNumber: realizationItem.requestNumber,
-          typeOfLetter: realizationItem.typeOfLetter,
-          entryDate: realizationItem.createdAt,
-          amountSubmission: totalAmount,
-          status: realizationItem.status,
-          statusTo: realizationItem.personalNumberTo,
-          departmentTo: realizationItem.departmentTo,
-          description: realizationItem.titleRequest,
-        };
-      });
+          return {
+            idRealization: realizationItem.idRealization,
+            taReff: realizationItem.taReff,
+            requestNumber: realizationItem.requestNumber,
+            typeOfLetter: realizationItem.typeOfLetter,
+            entryDate: realizationItem.createdAt,
+            amountSubmission: totalAmount,
+            status: realizationItem.status,
+            statusTo: name !== null ? name : null,
+            departmentTo: realizationItem.departmentTo,
+            description: realizationItem.titleRequest,
+          };
+        }),
+      );
 
       const totalItemsPerPage = isLastPage ? remainingItems : perPage;
 
       return {
-        data: realizationWithFileUpload,
+        data: realizationData,
         meta: {
           currentPage: Number(page),
           totalItems,
@@ -290,7 +303,6 @@ export class ApprovalService {
       let personalNumberTo: string | null = null;
       let departmentTo: string | null = null;
       let taReff: string | null = null;
-
       if (updateRealizationDto.statusToId === null) {
         personalNumberTo = null;
         departmentTo = null;
@@ -307,11 +319,13 @@ export class ApprovalService {
       } else if (updateRealizationDto.statusToId === 6) {
         personalNumberTo = null;
         departmentTo = 'TAB';
+        taReff = await this.generateTAReff(idRealization);
       } else if (updateRealizationDto.statusToId === 7) {
         personalNumberTo =
           realization.roleAssignment['SM_TAB']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['SM_TAB']?.personalUnit ?? null;
+        taReff = taReff;
       } else if (updateRealizationDto.statusToId === 8) {
         personalNumberTo =
           realization.roleAssignment['vicePresidentTA']?.personalNumber ?? null;
@@ -330,6 +344,7 @@ export class ApprovalService {
       const updatedRealization = await this.prisma.realization.update({
         where: { idRealization: idRealization },
         data: {
+          taReff: taReff,
           status: updateRealizationDto.status,
           statusId: updateRealizationDto.statusId,
           statusToId: updateRealizationDto.statusToId,
@@ -375,7 +390,7 @@ export class ApprovalService {
     }
   }
 
-  async generateTAReff(id: number): Promise<string> {
+  private async generateTAReff(id: number): Promise<string> {
     const year = new Date().getFullYear();
     const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
 
@@ -389,28 +404,46 @@ export class ApprovalService {
     });
     const dinas = realization.m_cost_center.dinas;
 
-    const tAReff = `TAB/RA.${dinas}/${month}.${id}/${year}`;
+    const tAReff = `TAB/RA.${dinas}/${month}.0${id}/${year}`;
 
     return tAReff;
   }
 
-  async take(id: number, updateRealizationDto: UpdateRealizationDto) {
+  async take(
+    id: number,
+    updateRealizationDto: UpdateRealizationDto,
+    isTAB: boolean,
+    isTXC3: boolean,
+  ) {
     const realization = await this.prisma.realization.findUnique({
       where: { idRealization: id },
     });
     if (!realization) {
       throw new NotFoundException(`Realization with ID ${id} not found`);
     }
+    let conditions: string;
+    if (isTAB === true && isTXC3 === false) {
+      conditions = 'TAB';
+    } else if (isTAB === false && isTXC3 === true) {
+      conditions = 'TXC_3';
+    } else {
+      throw new BadRequestException('Invalid conditions');
+    }
     try {
       let contributorsArray = realization.contributors || [];
+      let roleAssignment = realization.roleAssignment || {};
 
       if (
         updateRealizationDto.personalNumberTo === null &&
         contributorsArray.length > 0
       ) {
         contributorsArray.pop();
+        roleAssignment[conditions] = null;
       } else if (updateRealizationDto.personalNumberTo !== null) {
         contributorsArray.push(updateRealizationDto.personalNumberTo);
+        roleAssignment[conditions] = await this.roleService.getUserData(
+          updateRealizationDto.personalNumberTo,
+        );
       }
 
       const updatedRealization = await this.prisma.realization.update({
@@ -422,6 +455,7 @@ export class ApprovalService {
           contributors: {
             set: contributorsArray,
           },
+          roleAssignment: roleAssignment,
         },
       });
 

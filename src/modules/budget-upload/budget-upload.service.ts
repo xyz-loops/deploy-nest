@@ -8,6 +8,7 @@ import { Request } from 'express';
 //import { format } from 'date-fns';
 import { ItemsBudgetUploadDto } from './dto/budget-upload.dto';
 import { ExcelBudgetUploadService } from './excel-budget-upload.service';
+import { format, subMonths, addDays, addMonths } from 'date-fns';
 import { ReadBudgetUploadSheetDto } from './dto/read-budget-upload.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 
@@ -1155,6 +1156,7 @@ export class BudgetUploadService {
       if (!(realization.idRealization in groupedItems)) {
         groupedItems[realization.idRealization] = {
           years: realization.years,
+          month: realization.month,
           idCostCenter: realization.costCenterId,
           idGlAccount: item.glAccountId,
           total: 0,
@@ -1191,27 +1193,9 @@ export class BudgetUploadService {
         item.amount;
       // Accumulate the totalValues
       groupedItems[realization.idRealization].total += item.amount;
-
-      const today = new Date();
-      const currentMonth = today.getMonth() + 1;
-      if (
-        realization.years === today.getFullYear() &&
-        realization.month === currentMonth
-      ) {
-        groupedItems[realization.idRealization].mtdTotal += item.amount;
-      }
-
-      // Menambahkan nilai untuk YTD jika tahun sama atau sebelum tahun saat ini
-      if (
-        realization.years <= today.getFullYear() &&
-        realization.month <= currentMonth
-      ) {
-        groupedItems[realization.idRealization].ytdTotal += item.amount;
-      }
     });
 
     const results = Object.values(groupedItems);
-
     return results;
   }
 
@@ -1241,9 +1225,10 @@ export class BudgetUploadService {
   //     },
   //   });
   // }
+
   async countingBudget(queryParams) {
     // Dapatkan nilai filter dari queryParams
-    const { groupGl, groupDetail } = queryParams;
+    const { groupGl, groupDetail, years } = queryParams;
 
     // Logika filter sesuai dengan kebutuhan
     let filter: any = {};
@@ -1267,34 +1252,41 @@ export class BudgetUploadService {
       },
     });
 
-    // Perhitungan MTD dan YTD
-    const today = new Date();
-    const currentMonth = today.getMonth() + 1; // Bulan dimulai dari 0 (Januari) hingga 11 (Desember)
-    const currentYear = today.getFullYear();
+    // console.log(result);
+    // Calculate MTD and YTD totals
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentYear = currentDate.getFullYear();
+
+    // // Manipulate date for testing purposes
+    // const fakeCurrentDate = subMonths(new Date(), 1); // Subtracts 2 months from the current date
+    // const currentMonth = fakeCurrentDate.getMonth() + 1;
+    // const currentYear = fakeCurrentDate.getFullYear();
+
+    // console.log(fakeCurrentDate);
 
     let mtdTotal = 0;
     let ytdTotal = 0;
 
-    for (const budget of result) {
-      // Mendapatkan bulan dan tahun dari tanggal anggaran
-      const budgetDate = new Date(budget.createdAt);
-      const budgetMonth = budgetDate.getMonth() + 1;
-      const budgetYear = budgetDate.getFullYear();
+    result.forEach((budget) => {
+      const budgetMonth =
+        budget.years === currentYear
+          ? new Date(budget.createdAt).getMonth() + 1
+          : null;
+      const budgetYear = budget.years;
+      // console.log(budget.createdAt.getMonth());
 
-      // Perhitungan MTD
-      if (budgetYear === currentYear && budgetMonth === currentMonth) {
+      if (budgetMonth === currentMonth && budgetYear === currentYear) {
+        // MTD calculation for the current month
         mtdTotal += budget.total;
       }
 
-      // Perhitungan YTD
       if (budgetYear === currentYear && budgetMonth <= currentMonth) {
+        // YTD calculation for the current year
         ytdTotal += budget.total;
       }
-    }
+    });
 
-    return { mtdTotal, ytdTotal };
-
-    console.log('MTD Total:', mtdTotal);
-    console.log('YTD Total:', ytdTotal);
+    return { BudgetMTD: mtdTotal, BudgetYTD: ytdTotal };
   }
 }

@@ -270,7 +270,7 @@ model Realization {
   costCenterId     Int                 @map("cost_center_id") @db.Integer
   draftNumber      Int                 @default(autoincrement()) @map("no_draft") @db.Integer
   requestNumber    String?             @map("no_request")
-  taReff           Int?                @map("ta_reff") @db.Integer
+  taReff           String?             @map("ta_reff") @db.VarChar
   type             RealizationTypeEnum @default(UANG_MUKA) @map("type")
   typeOfLetter     String              @default("Realisasi Anggaran") @map("type_of_letter")
   responsibleNopeg String              @map("responsible_nopeg") @db.VarChar(8)
@@ -280,7 +280,7 @@ model Realization {
   statusId         Int                 @map("status_id") @db.Integer
   department       String?             @map("department") @db.VarChar(8)
   personalNumber   String              @map("nopeg") @db.VarChar(8)
-  statusToId       Int?                 @map("status_to_id") @db.Integer
+  statusToId       Int?                @map("status_to_id") @db.Integer
   departmentTo     String?             @map("department_to") @db.VarChar(8)
   personalNumberTo String?             @map("nopeg_to") @db.VarChar(8)
   createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
@@ -293,7 +293,7 @@ model Realization {
 
   m_cost_center                               MCostCenter       @relation(fields: [costCenterId], references: [idCostCenter], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_cost_center_to_realization")
   m_status_realization_id_statusTom_status    MStatus           @relation("realization_id_statusTom_status", fields: [statusId], references: [idStatus], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_status_to_realization")
-  m_status_realization_id_status_toTom_status MStatus?           @relation("realization_id_status_toTom_status", fields: [statusToId], references: [idStatus], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_status_to_realization1")
+  m_status_realization_id_status_toTom_status MStatus?          @relation("realization_id_status_toTom_status", fields: [statusToId], references: [idStatus], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_status_to_realization1")
   realizationItem                             RealizationItem[]
   reallocation                                Reallocation[]
 
