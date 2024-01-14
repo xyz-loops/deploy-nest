@@ -336,6 +336,11 @@ export class ApprovalService {
         departmentTo = 'TXC-3';
       } else if (updateRealizationDto.statusToId === 10) {
         personalNumberTo =
+          realization.roleAssignment['SM_TXC']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['SM_TXC']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 11) {
+        personalNumberTo =
           realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
