@@ -56,3 +56,54 @@ export class UpdateRealizationDto {
 
   personalNumberTo: string;
 }
+
+export class UpdateRealizationItemDto {
+  idRealizationItem: number;
+  @Type(() => Number)
+  realizationId: number;
+
+  @Type(() => Number)
+  glAccountId: number;
+
+  @Type(() => Number)
+  amount: number;
+
+  @Type(() => Number)
+  amountSubmission: number;
+
+  @Type(() => Number)
+  amountHps?: number;
+
+  @Type(() => Number)
+  amountCorrection: number;
+
+  @Type(() => Number)
+  amountApprove: number;
+
+  periodStart: Date;
+
+  periodFinish: Date;
+
+  remarkPby: string;
+
+  readonly memo?: string;
+
+  @IsString()
+  descPby: string;
+
+  @IsString()
+  createdBy: string;
+
+  static fromRequestArray(
+    data: UpdateRealizationItemDto[],
+  ): UpdateRealizationItemDto[] {
+    return data.map((item) => {
+      item.amount = Number(item.amount);
+      item.amountSubmission = Number(item.amountSubmission);
+      item.amountHps = Number(item.amountHps);
+      item.amountCorrection = Number(item.amountCorrection);
+      item.glAccountId = Number(item.glAccountId);
+      return item;
+    });
+  }
+}

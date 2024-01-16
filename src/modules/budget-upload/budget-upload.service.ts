@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   Query,
@@ -11,6 +13,7 @@ import { ExcelBudgetUploadService } from './excel-budget-upload.service';
 import { format, subMonths, addDays, addMonths } from 'date-fns';
 import { ReadBudgetUploadSheetDto } from './dto/read-budget-upload.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
+import { SavaSimulate } from './dto/save-simulate.dto';
 
 @Injectable()
 export class BudgetUploadService {
@@ -502,7 +505,7 @@ export class BudgetUploadService {
     }
   }
 
-  async viewBudget(queryParams: any) {
+  async getViewBudget(queryParams: any) {
     try {
       // Dapatkan nilai filter dari queryParams
       const { years, dinas, percentage } = queryParams;
@@ -1118,6 +1121,35 @@ export class BudgetUploadService {
     return finalResult;
   }
 
+  //Belum benar
+  async getBudgetAndActual(queryParams: any): Promise<any[]> {
+    try {
+      const budgetResults = await this.getViewBudget(queryParams);
+      const actualResults = await this.getActualRealization(queryParams);
+
+      // Menggabungkan hasil budget dan actual
+      const mergedResults = budgetResults.map((budgetItem: any) => {
+        const correspondingActualItem = actualResults.find(
+          (actualItem: any) => actualItem.title === budgetItem.title,
+        );
+
+        if (correspondingActualItem) {
+          return {
+            ...budgetItem,
+            actual: correspondingActualItem,
+          };
+        } else {
+          return budgetItem;
+        }
+      });
+
+      return mergedResults;
+    } catch (error) {
+      // Handle errors as needed
+      throw error;
+    }
+  }
+
   async countingRealization(queryParams) {
     // Dapatkan nilai filter dari queryParams
     const { groupGl, groupDetail } = queryParams;
@@ -1196,35 +1228,32 @@ export class BudgetUploadService {
     });
 
     const results = Object.values(groupedItems);
-    return results;
+
+    // Calculate MTD and YTD totals
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentYear = currentDate.getFullYear();
+
+    let mtdTotal = 0;
+    let ytdTotal = 0;
+
+    results.forEach((entity: any) => {
+      const entityMonth = entity.years === currentYear ? entity.month : null;
+      const entityYear = entity.years;
+
+      if (entityMonth === currentMonth && entityYear === currentYear) {
+        // MTD calculation for the current month
+        mtdTotal += entity.total;
+      }
+
+      if (entityYear === currentYear && entityMonth <= currentMonth) {
+        // YTD calculation for the current year
+        ytdTotal += entity.total;
+      }
+    });
+
+    return { MTDTotal: mtdTotal, YTDTotal: ytdTotal };
   }
-
-  // async countingBudget(queryParams) {
-  //   // Dapatkan nilai filter dari queryParams
-  //   const { groupGl, groupDetail } = queryParams;
-
-  //   // Logika filter sesuai dengan kebutuhan
-  //   let filter: any = {};
-  //   if (groupGl) {
-  //     filter.mGlAccount = { groupGl: groupGl };
-  //   }
-  //   if (groupDetail) {
-  //     filter.mGlAccount = { groupDetail: groupDetail };
-  //   }
-
-  //   const result = await this.prisma.budget.findMany({
-  //     where: filter,
-  //     include: {
-  //       mGlAccount: {
-  //         select: {
-  //           idGlAccount: true,
-  //           groupDetail: true,
-  //           groupGl: true,
-  //         },
-  //       },
-  //     },
-  //   });
-  // }
 
   async countingBudget(queryParams) {
     // Dapatkan nilai filter dari queryParams
@@ -1252,18 +1281,17 @@ export class BudgetUploadService {
       },
     });
 
-    // console.log(result);
-    // Calculate MTD and YTD totals
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
-    const currentYear = currentDate.getFullYear();
-
     // // Manipulate date for testing purposes
     // const fakeCurrentDate = subMonths(new Date(), 1); // Subtracts 2 months from the current date
     // const currentMonth = fakeCurrentDate.getMonth() + 1;
     // const currentYear = fakeCurrentDate.getFullYear();
 
     // console.log(fakeCurrentDate);
+
+    // Calculate MTD and YTD totals
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentYear = currentDate.getFullYear();
 
     let mtdTotal = 0;
     let ytdTotal = 0;
@@ -1288,5 +1316,47 @@ export class BudgetUploadService {
     });
 
     return { BudgetMTD: mtdTotal, BudgetYTD: ytdTotal };
+  }
+
+  async saveSimulate(saveSimulate: SavaSimulate) {
+    try {
+      const simulate = await this.prisma.simulation.create({
+        data: saveSimulate,
+      });
+      return {
+        data: simulate,
+        meta: null,
+        message: 'Document category created successfully',
+        status: HttpStatus.CREATED,
+        time: new Date(),
+      };
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to create document category',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getSimulationBudget() {
+    const latestSimulation = await this.prisma.simulation.findFirst({
+      orderBy: {
+        createdAt: 'desc', // Assuming you want to order by createdAt in descending order
+      },
+      select: {
+        years: true,
+        costCenterId: true,
+        simulationBudget: true,
+      },
+    });
+    console.log(latestSimulation);
+    const result = await this.prisma.simulation.findMany({});
   }
 }

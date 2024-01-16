@@ -9,10 +9,14 @@ import { CreateDashboardDto } from './dto/create-dashboard.dto';
 import { UpdateDashboardDto } from './dto/update-dashboard.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
+import { RoleService } from '../role/role.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleService: RoleService,
+  ) {}
 
   create(createDashboardDto: CreateDashboardDto) {
     return 'This action adds a new dashboard';
@@ -26,28 +30,31 @@ export class DashboardService {
       },
     });
 
-    const realizationWithAmount = realization.map((realizationItem) => {
-      // Calculate total amount for each realization using reduce
-      const totalAmount = realizationItem.realizationItem.reduce(
-        (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
-        0,
-      );
+    const realizationWithAmount = await Promise.all(
+      realization.map(async (realizationItem) => {
+        const totalAmount = realizationItem.realizationItem.reduce(
+          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
+          0,
+        );
+        const name =
+          realizationItem.personalNumberTo !== null
+            ? await this.roleService.getName(realizationItem.personalNumberTo)
+            : null;
 
-      return {
-        idRealization: realizationItem.idRealization,
-        requestNumber: realizationItem.requestNumber,
-        entryDate: realizationItem.createdAt,
-        m_cost_center: realizationItem.m_cost_center,
-        status: realizationItem.status,
-        typeSubmission: realizationItem.type,
-        statusTo: realizationItem.personalNumberTo,
-        departmentTo: realizationItem.departmentTo,
-        submissionValue: totalAmount,
-        description: realizationItem.titleRequest,
-        createdAt: realizationItem.createdAt,
-        updatedAt: realizationItem.updatedAt,
-      };
-    });
+        return {
+          idRealization: realizationItem.idRealization,
+          requestNumber: realizationItem.requestNumber,
+          entryDate: realizationItem.createdAt,
+          m_cost_center: realizationItem.m_cost_center,
+          status: realizationItem.status,
+          typeSubmission: realizationItem.type,
+          statusTo: name !== null ? name : null,
+          departmentTo: realizationItem.departmentTo,
+          submissionValue: totalAmount,
+          description: realizationItem.titleRequest,
+        };
+      }),
+    );
 
     return {
       data: realizationWithAmount,

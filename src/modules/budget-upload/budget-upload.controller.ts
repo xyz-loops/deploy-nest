@@ -18,6 +18,7 @@ import { multerOptions } from 'src/config/multer-options.config';
 import { BudgetUploadService } from './budget-upload.service';
 // import { UpdateBudgetDto } from './dtos/update-budget.dto';
 import { ItemsBudgetUploadDto } from './dto/budget-upload.dto';
+import { SavaSimulate } from './dto/save-simulate.dto';
 @Controller({
   version: '1',
   path: 'api/budget',
@@ -53,7 +54,7 @@ export class BudgetUploadController {
   async findFilterBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
       const findFilterBudget =
-        await this.budgetUploadService.viewBudget(queryParams);
+        await this.budgetUploadService.getViewBudget(queryParams);
       const findActual =
         await this.budgetUploadService.getActualRealization(queryParams);
       return res.status(200).json({
@@ -92,13 +93,34 @@ export class BudgetUploadController {
     const actual =
       await this.budgetUploadService.countingRealization(queryParams);
     return {
-      // data: budget,
-      data2: actual,
+      data: { ...budget, ...actual },
+      // data: { actual },
       meta: {
         status: 'OK',
       },
       message: 'Data has been converted & saved',
       time: new Date(),
     };
+  }
+
+  @Post('/savesimulate')
+  findAll(@Body() dto: SavaSimulate) {
+    return this.budgetUploadService.saveSimulate(dto);
+  }
+
+  @Get('/get')
+  getPercentage() {
+    return this.budgetUploadService.getSimulationBudget();
+  }
+
+  @Get('budgetactual')
+  async getBudgetAndActual(@Query() queryParams: any) {
+    try {
+      const result = await this.budgetUploadService.getBudgetAndActual(queryParams);
+      return { success: true, data: result };
+    } catch (error) {
+      // Handle errors and return an appropriate response
+      return { success: false, error: 'An error occurred' };
+    }
   }
 }

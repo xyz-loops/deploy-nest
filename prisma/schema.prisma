@@ -217,7 +217,6 @@ model MGlAccount {
   reallocation_corporate_item_reallocation_corporate_item_id_gl_accountTom_gl_account    ReallocationCorporateItem[] @relation("reallocation_corporate_item_id_gl_accountTom_gl_account")
   reallocation_corporate_item_reallocation_corporate_item_id_gl_account_toTom_gl_account ReallocationCorporateItem[] @relation("reallocation_corporate_item_id_gl_account_toTom_gl_account")
   reallocation_item                                                                      ReallocationItem[]
-  simulation                                                                             Simulation[]
 
   @@map("m_gl_account")
 }
@@ -550,9 +549,7 @@ model Simulation {
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
   updatedBy        String?  @map("updated_by") @db.VarChar(50)
 
-  m_cost_center         MCostCenter @relation(fields: [costCenterId], references: [idCostCenter], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_cost_center_to_simulation")
-  MGlAccount            MGlAccount? @relation(fields: [mGlAccountIdGlAccount], references: [idGlAccount])
-  mGlAccountIdGlAccount Int?
+  m_cost_center MCostCenter @relation(fields: [costCenterId], references: [idCostCenter], onDelete: NoAction, onUpdate: NoAction, map: "fk_m_cost_center_to_simulation")
 
   @@map("simulation")
 }
