@@ -10,7 +10,10 @@ import { ApprovalDto, ApproveDto } from './dto/create-approval.dto';
 import { UpdateApprovalDto } from './dto/update-approval.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 import { StatusEnum } from '@prisma/client';
-import { UpdateRealizationDto } from '../realization/dto/update-realization.dto';
+import {
+  UpdateRealizationDto,
+  UpdateRealizationItemDto,
+} from '../realization/dto/update-realization.dto';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 import { status } from 'prisma/dummy-data';
 import { HttpService } from '@nestjs/axios';
@@ -289,9 +292,15 @@ export class ApprovalService {
   }
 
   async approval(dto: ApproveDto) {
-    const { idRealization, updateRealizationDto, approvalDto } = dto;
+    const {
+      idRealization,
+      updateRealizationDto,
+      approvalDto,
+      realizationItemDto,
+    } = dto;
     const realization = await this.prisma.realization.findUnique({
       where: { idRealization },
+      include: { realizationItem: true },
     });
     if (!realization) {
       throw new NotFoundException(
@@ -336,11 +345,6 @@ export class ApprovalService {
         departmentTo = 'TXC-3';
       } else if (updateRealizationDto.statusToId === 10) {
         personalNumberTo =
-          realization.roleAssignment['SM_TXC']?.personalNumber ?? null;
-        departmentTo =
-          realization.roleAssignment['SM_TXC']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 11) {
-        personalNumberTo =
           realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
@@ -371,9 +375,37 @@ export class ApprovalService {
           createdBy: updateRealizationDto.updatedBy,
         },
       });
+      const updatedItems = await Promise.all(
+        realizationItemDto.map(async (item: UpdateRealizationItemDto) => {
+          const amount =
+            item.amountApprove !== null
+              ? item.amountApprove
+              : item.amountCorrection !== null
+                ? item.amountCorrection
+                : item.amountHps !== null
+                  ? item.amountHps
+                  : null;
+
+          const dataToUpdate: any = {
+            amountHps: item.amountHps,
+            amountCorrection: item.amountCorrection,
+            amountApprove: item.amountApprove,
+            updatedBy: updateRealizationDto.updatedBy,
+          };
+
+          if (amount !== null) {
+            dataToUpdate.amount = amount;
+          }
+
+          return await this.prisma.realizationItem.update({
+            where: { idRealizationItem: item.idRealizationItem },
+            data: dataToUpdate,
+          });
+        }),
+      );
 
       return {
-        data: { updatedRealization, createdApproval },
+        data: { updatedRealization, createdApproval, updatedItems },
         meta: null,
         message: 'Realization updated, and Approval created successfully',
         status: HttpStatus.OK,
