@@ -173,30 +173,37 @@ export class DashboardService {
       const remainingItems = totalItems - skip;
       const isLastPage = page * perPage >= totalItems;
 
-      const realizationWithFileUpload = realization.map((realizationItem) => {
-        const totalAmount = realizationItem.realizationItem.reduce(
-          (accumulator, currentItem) => accumulator + (currentItem.amount || 0),
-          0,
-        );
+      const realizationWithAmount = await Promise.all(
+        realization.map(async (realizationItem) => {
+          const totalAmount = realizationItem.realizationItem.reduce(
+            (accumulator, currentItem) =>
+              accumulator + (currentItem.amount || 0),
+            0,
+          );
+          const name =
+            realizationItem.personalNumberTo !== null
+              ? await this.roleService.getName(realizationItem.personalNumberTo)
+              : null;
 
-        return {
-          idRealization: realizationItem.idRealization,
-          requestNumber: realizationItem.requestNumber,
-          entryDate: realizationItem.createdAt,
-          m_cost_center: realizationItem.m_cost_center,
-          status: realizationItem.status,
-          typeSubmission: realizationItem.type,
-          statusTo: realizationItem.personalNumberTo,
-          departmentTo: realizationItem.departmentTo,
-          submissionValue: totalAmount,
-          description: realizationItem.titleRequest,
-        };
-      });
+          return {
+            idRealization: realizationItem.idRealization,
+            requestNumber: realizationItem.requestNumber,
+            entryDate: realizationItem.createdAt,
+            m_cost_center: realizationItem.m_cost_center,
+            status: realizationItem.status,
+            typeSubmission: realizationItem.type,
+            statusTo: name !== null ? name : null,
+            departmentTo: realizationItem.departmentTo,
+            submissionValue: totalAmount,
+            description: realizationItem.titleRequest,
+          };
+        }),
+      );
 
       const totalItemsPerPage = isLastPage ? remainingItems : perPage;
 
       return {
-        data: realizationWithFileUpload,
+        data: realizationWithAmount,
         meta: {
           currentPage: Number(page),
           totalItems,
