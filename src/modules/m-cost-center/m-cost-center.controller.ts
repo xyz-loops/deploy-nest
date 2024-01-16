@@ -8,6 +8,7 @@ import {
   Body,
   HttpException,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { MCostCenterService } from './m-cost-center.service';
 import { CreateMCostCenterDto } from './dto/create-m-cost-center.dto';
@@ -70,12 +71,12 @@ export class MCostCenterController {
     }
   }
 
-  @Get()
+  @Get('/all')
   findAll() {
     return this.mCostCenterService.findAll();
   }
 
-  @Get(':id')
+  @Get('/find/:id')
   findOne(@Param('id') id: string) {
     return this.mCostCenterService.findOne(+id);
   }
@@ -95,7 +96,15 @@ export class MCostCenterController {
     return this.mCostCenterService.findDinas(dinas, bidang);
   }
 
-  @Put(':id')
+  @Get('/pagination/')
+  findAllPaginated(
+    @Query('page') page: number,
+    @Query('orderBy') orderBy: string,
+  ) {
+    return this.mCostCenterService.findAllPaginated(page, orderBy);
+  }
+
+  @Put('/update/:id')
   update(
     @Param('id') id: string,
     @Body() updateMCostCenterDto: UpdateMCostCenterDto,
@@ -103,7 +112,7 @@ export class MCostCenterController {
     return this.mCostCenterService.update(+id, updateMCostCenterDto);
   }
 
-  @Delete(':id')
+  @Delete('/delete/:id')
   remove(@Param('id') id: string) {
     return this.mCostCenterService.remove(+id);
   }

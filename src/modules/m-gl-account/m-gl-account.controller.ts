@@ -6,6 +6,7 @@ import {
   Param,
   Delete,
   Put,
+  Query,
 } from '@nestjs/common';
 import { MGlAccountService } from './m-gl-account.service';
 import { CreateMGlAccountDto } from './dto/create-m-gl-account.dto';
@@ -28,7 +29,7 @@ export class MGlAccountController {
     return this.mGlAccountService.findAll();
   }
 
-  @Get(':id')
+  @Get('/find/:id')
   findOne(@Param('id') id: number) {
     return this.mGlAccountService.findOne(+id);
   }
@@ -43,7 +44,15 @@ export class MGlAccountController {
     return this.mGlAccountService.findGroup(groupGl);
   }
 
-  @Put(':id')
+  @Get('/pagination/')
+  findAllPaginated(
+    @Query('page') page: number,
+    @Query('orderBy') orderBy: string,
+  ) {
+    return this.mGlAccountService.findAllPaginated(page, orderBy);
+  }
+
+  @Put('/update/:id')
   update(
     @Param('id') id: number,
     @Body() updateMGlAccountDto: UpdateMGlAccountDto,

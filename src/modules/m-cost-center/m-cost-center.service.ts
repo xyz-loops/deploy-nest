@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -7,6 +8,7 @@ import {
 import { PrismaService } from 'src/core/service/prisma.service'; // Import the Prisma service for database operations.
 import { CreateMCostCenterDto } from './dto/create-m-cost-center.dto';
 import { UpdateMCostCenterDto } from './dto/update-m-cost-center.dto';
+import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 
 @Injectable()
 export class MCostCenterService {
@@ -155,6 +157,69 @@ export class MCostCenterService {
       data: costcenter,
       meta: null,
       message: 'Cost Center found',
+      status: HttpStatus.OK,
+      time: new Date(),
+    };
+  }
+
+  async findAllPaginated(page: number, order: string = 'asc') {
+    const perPage = 10;
+    // Validate order input
+    if (!['asc', 'desc'].includes(order.toLowerCase())) {
+      throw new BadRequestException(
+        'Invalid order parameter. Use "asc" or "desc".',
+      );
+    }
+    const skip = (page - 1) * perPage;
+
+    const costCenters = await this.prisma.mCostCenter.findMany({
+      skip,
+      take: perPage,
+      // orderBy: {
+      //   years: order.toLowerCase() as SortOrder,
+      // },
+    });
+
+    const totalItems = await this.prisma.mCostCenter.count();
+
+    // Determine the last available page
+    const lastPage = Math.ceil(totalItems / perPage);
+
+    // Check if the requested page exceeds the last available page
+    if (page > lastPage) {
+      return {
+        data: [],
+        meta: {
+          currentPage: Number(page),
+          totalItems,
+          lastpage: lastPage,
+          totalItemsPerPage: 0, // Set to 0 when the requested page exceeds the last available page
+        },
+        message: 'Pagination dashboard retrieved',
+        status: HttpStatus.OK,
+        time: new Date(),
+      };
+    }
+
+    // Menghitung jumlah item yang tersisa pada halaman terakhir
+    // const remainingItems = totalItems % perPage;
+    const remainingItems = totalItems - skip;
+
+    // Memeriksa apakah ini adalah halaman terakhir
+    const isLastPage = page * perPage >= totalItems;
+
+    const totalItemsPerPage = isLastPage ? remainingItems : perPage;
+    // const totalItemsPerPage1 = min(perPage, remainingItems);
+    return {
+      data: costCenters,
+      meta: {
+        currentPage: Number(page),
+        totalItems,
+        lastpage: Math.ceil(totalItems / perPage),
+        totalItemsPerPage: Number(totalItemsPerPage),
+        // totalItemsPerPages: Number(totalItemsPerPage1),
+      },
+      message: 'Paginated Cost Centers retrieved',
       status: HttpStatus.OK,
       time: new Date(),
     };
