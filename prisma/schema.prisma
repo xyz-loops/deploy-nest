@@ -34,7 +34,7 @@ model NoteMemo {
   approvalId   Int      @map("approval_id") @db.Integer
   years        Int      @map("years") @db.Integer
   dinas        String   @map("dinas") @db.VarChar(8)
-  memoNumber   BigInt   @map("memo_number") @db.BigInt
+  memoNumber   String   @map("memo_number") @db.VarChar
   departmentTo String   @map("department_to") @db.VarChar(8)
   note         String   @map("note")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)

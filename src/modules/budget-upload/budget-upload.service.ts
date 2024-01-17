@@ -1252,7 +1252,7 @@ export class BudgetUploadService {
       }
     });
 
-    return { MTDTotal: mtdTotal, YTDTotal: ytdTotal };
+    return { ActualMTD: mtdTotal, ActualYTD: ytdTotal };
   }
 
   async countingBudget(queryParams) {

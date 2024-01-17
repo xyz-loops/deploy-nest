@@ -14,12 +14,15 @@ import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 import * as countHelper from 'src/core/utils/counthelper';
 import { RoleService } from '../role/role.service';
 import { HttpService } from '@nestjs/axios';
+import { costCenters } from 'prisma/dummy-data';
 
 @Injectable()
 export class ReportService {
   httpService: HttpService;
-  constructor(private readonly prisma: PrismaService,
-    private readonly roleService: RoleService,) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleService: RoleService,
+  ) {}
 
   async getAllBudget(queryParams: any) {
     try {
@@ -724,6 +727,196 @@ export class ReportService {
       );
     }
   }
+
+  async countingRealization(queryParams) {
+    // Dapatkan nilai filter dari queryParams
+    const { groupGl, groupDetail, dinas } = queryParams;
+
+    // Logika filter sesuai dengan kebutuhan
+    let filter: any = {};
+    if (dinas) {
+      filter.realization = {
+        ...filter.realization,
+        m_cost_center: {
+          dinas: dinas,
+        },
+      };
+    }
+    if (groupGl) {
+      filter.m_gl_account = { groupGl: groupGl }; // konversi ke number jika diperlukan
+    }
+    if (groupDetail) {
+      filter.m_gl_account = { groupDetail: groupDetail };
+    }
+
+    const realizationItemData = await this.prisma.realizationItem.findMany({
+      where: filter,
+      include: {
+        m_gl_account: true,
+        realization: {
+          include: {
+            m_cost_center: {
+              select: {
+                costCenter: true,
+                dinas: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const groupedItems = {};
+
+    realizationItemData.forEach((item) => {
+      const realization = item.realization;
+
+      if (!(realization.idRealization in groupedItems)) {
+        groupedItems[realization.idRealization] = {
+          years: realization.years,
+          month: realization.month,
+          idCostCenter: realization.costCenterId,
+          idGlAccount: item.glAccountId,
+          total: 0,
+          value1: 0,
+          value2: 0,
+          value3: 0,
+          value4: 0,
+          value5: 0,
+          value6: 0,
+          value7: 0,
+          value8: 0,
+          value9: 0,
+          value10: 0,
+          value11: 0,
+          value12: 0,
+          value13: null,
+          value14: null,
+          value15: null,
+          value16: null,
+          mGlAccount: {
+            glAccount: item.m_gl_account.glAccount,
+            groupGl: item.m_gl_account.groupGl,
+            groupDetail: item.m_gl_account.groupDetail,
+          },
+          mCostCenter: {
+            costCenter: realization.m_cost_center.costCenter,
+            dinas: realization.m_cost_center.dinas,
+          },
+        };
+      }
+
+      // Accumulate the value based on the month
+      groupedItems[realization.idRealization][`value${realization.month}`] +=
+        item.amount;
+      // Accumulate the totalValues
+      groupedItems[realization.idRealization].total += item.amount;
+    });
+
+    const results = Object.values(groupedItems);
+
+    // Calculate MTD and YTD totals
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentYear = currentDate.getFullYear();
+
+    let mtdTotal = 0;
+    let ytdTotal = 0;
+
+    results.forEach((entity: any) => {
+      const entityMonth = entity.years === currentYear ? entity.month : null;
+      const entityYear = entity.years;
+
+      if (entityMonth === currentMonth && entityYear === currentYear) {
+        // MTD calculation for the current month
+        mtdTotal += entity.total;
+      }
+
+      if (entityYear === currentYear && entityMonth <= currentMonth) {
+        // YTD calculation for the current year
+        ytdTotal += entity.total;
+      }
+    });
+
+    return { ActualMTD: mtdTotal, ActualYTD: ytdTotal };
+  }
+
+  async countingBudget(queryParams) {
+    // Dapatkan nilai filter dari queryParams
+    const { groupGl, groupDetail, dinas, years } = queryParams;
+
+    // Logika filter sesuai dengan kebutuhan
+    let filter: any = {};
+    if (years) {
+      filter.years = +years;
+    }
+    if (dinas) {
+      filter.mCostCenter = { dinas: dinas };
+    }
+    if (groupGl) {
+      filter.mGlAccount = { groupGl: groupGl };
+    }
+    if (groupDetail) {
+      filter.mGlAccount = { groupDetail: groupDetail };
+    }
+
+    const result = await this.prisma.budget.findMany({
+      where: filter,
+      include: {
+        mGlAccount: {
+          select: {
+            idGlAccount: true,
+            groupDetail: true,
+            groupGl: true,
+          },
+        },
+        mCostCenter: {
+          select: {
+            dinas: true,
+            costCenter: true,
+          },
+        },
+      },
+    });
+
+    console.log(result);
+
+    // Calculate MTD and YTD totals
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+    const currentYear = currentDate.getFullYear();
+
+    let mtdTotal = 0;
+    let ytdTotal = 0;
+
+    result.forEach((budget) => {
+      const budgetMonth =
+        budget.years === currentYear
+          ? new Date(budget.createdAt).getMonth() + 1
+          : null;
+      const budgetYear = budget.years;
+      console.log(budgetMonth, budgetYear);
+
+      if (budgetMonth === currentMonth && budgetYear === currentYear) {
+        // MTD calculation for the current month
+        mtdTotal += budget.total;
+      }
+
+      if (budgetYear === currentYear && budgetMonth <= currentMonth) {
+        // YTD calculation for the current year
+        ytdTotal += budget.total;
+      }
+    });
+
+    return { BudgetMTD: mtdTotal, BudgetYTD: ytdTotal };
+  }
+
+  // // Manipulate date for testing purposes
+  // const fakeCurrentDate = subMonths(new Date(), 1); // Subtracts 2 months from the current date
+  // const currentMonth = fakeCurrentDate.getMonth() + 1;
+  // const currentYear = fakeCurrentDate.getFullYear();
+
+  // console.log(fakeCurrentDate);
 
   update(id: number, updateReportDto: UpdateReportDto) {
     return `This action updates a #${id} report`;
