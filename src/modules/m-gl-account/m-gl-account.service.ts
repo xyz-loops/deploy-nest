@@ -9,6 +9,7 @@ import { CreateMGlAccountDto } from './dto/create-m-gl-account.dto';
 import { UpdateMGlAccountDto } from './dto/update-m-gl-account.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 import { glAccount } from 'prisma/dummy-data';
+import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 
 @Injectable()
 export class MGlAccountService {
@@ -16,7 +17,6 @@ export class MGlAccountService {
 
   async create(createMGlAccountDto: CreateMGlAccountDto) {
     try {
-      console.log(createMGlAccountDto);
       const mGlAccount = await this.prisma.mGlAccount.create({
         data: createMGlAccountDto,
       });
@@ -149,9 +149,9 @@ export class MGlAccountService {
     const glAccount = await this.prisma.mGlAccount.findMany({
       skip,
       take: perPage,
-      // orderBy: {
-      //   years: order.toLowerCase() as SortOrder,
-      // },
+      orderBy: {
+        updatedAt: order.toLowerCase() as SortOrder,
+      },
     });
 
     const totalItems = await this.prisma.mGlAccount.count();
@@ -193,7 +193,7 @@ export class MGlAccountService {
         totalItemsPerPage: Number(totalItemsPerPage),
         // totalItemsPerPages: Number(totalItemsPerPage1),
       },
-      message: 'Paginated Cost Centers retrieved',
+      message: 'Paginated Gl Account retrieved',
       status: HttpStatus.OK,
       time: new Date(),
     };
@@ -223,7 +223,7 @@ export class MGlAccountService {
       throw new HttpException(
         {
           data: null,
-          meta: null,
+          meta: error,
           message: 'Failed to update Gl Account',
           status: HttpStatus.INTERNAL_SERVER_ERROR,
           time: new Date(),

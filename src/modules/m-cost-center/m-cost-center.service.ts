@@ -162,10 +162,10 @@ export class MCostCenterService {
     };
   }
 
-  async findAllPaginated(page: number, order: string = 'asc') {
+  async findAllPaginated(page: number, orderBy: string = 'asc') {
     const perPage = 10;
     // Validate order input
-    if (!['asc', 'desc'].includes(order.toLowerCase())) {
+    if (!['asc', 'desc'].includes(orderBy.toLowerCase())) {
       throw new BadRequestException(
         'Invalid order parameter. Use "asc" or "desc".',
       );
@@ -175,9 +175,9 @@ export class MCostCenterService {
     const costCenters = await this.prisma.mCostCenter.findMany({
       skip,
       take: perPage,
-      // orderBy: {
-      //   years: order.toLowerCase() as SortOrder,
-      // },
+      orderBy: {
+        updatedAt: orderBy.toLowerCase() as SortOrder,
+      },
     });
 
     const totalItems = await this.prisma.mCostCenter.count();
