@@ -162,7 +162,11 @@ export class MCostCenterService {
     };
   }
 
-  async findAllPaginated(page: number, orderBy: string = 'asc') {
+  async findAllPaginated(
+    page: number,
+    orderBy: string = 'asc',
+    queryParams: any,
+  ) {
     const perPage = 10;
     // Validate order input
     if (!['asc', 'desc'].includes(orderBy.toLowerCase())) {
@@ -170,17 +174,27 @@ export class MCostCenterService {
         'Invalid order parameter. Use "asc" or "desc".',
       );
     }
+
+    const { dinas } = queryParams;
+    let filter: any = {};
+    if (dinas) {
+      filter.dinas = dinas; // konversi ke number jika diperlukan
+    }
+
     const skip = (page - 1) * perPage;
+
+    const totalItems = await this.prisma.mCostCenter.count({
+      where: filter,
+    });
 
     const costCenters = await this.prisma.mCostCenter.findMany({
       skip,
       take: perPage,
+      where: filter,
       orderBy: {
         updatedAt: orderBy.toLowerCase() as SortOrder,
       },
     });
-
-    const totalItems = await this.prisma.mCostCenter.count();
 
     // Determine the last available page
     const lastPage = Math.ceil(totalItems / perPage);

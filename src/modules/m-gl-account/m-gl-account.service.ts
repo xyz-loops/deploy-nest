@@ -136,7 +136,11 @@ export class MGlAccountService {
     };
   }
 
-  async findAllPaginated(page: number, order: string = 'asc') {
+  async findAllPaginated(
+    page: number,
+    order: string = 'asc',
+    queryParams: any,
+  ) {
     const perPage = 10;
     // Validate order input
     if (!['asc', 'desc'].includes(order.toLowerCase())) {
@@ -144,17 +148,27 @@ export class MGlAccountService {
         'Invalid order parameter. Use "asc" or "desc".',
       );
     }
+
+    const { groupGl } = queryParams;
+    let filter: any = {};
+    if (groupGl) {
+      filter.groupGl = groupGl;
+    }
+
     const skip = (page - 1) * perPage;
 
     const glAccount = await this.prisma.mGlAccount.findMany({
       skip,
       take: perPage,
+      where: filter,
       orderBy: {
         updatedAt: order.toLowerCase() as SortOrder,
       },
     });
 
-    const totalItems = await this.prisma.mGlAccount.count();
+    const totalItems = await this.prisma.mGlAccount.count({
+      where: filter,
+    });
 
     // Determine the last available page
     const lastPage = Math.ceil(totalItems / perPage);

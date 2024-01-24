@@ -879,12 +879,15 @@ export class ReportService {
       },
     });
 
-    console.log(result);
+    // console.log(result);
 
     // Calculate MTD and YTD totals
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
     const currentYear = currentDate.getFullYear();
+    const yearsFilter = filter.years;
+
+    // console.log(currentMonth, currentYear);
 
     let mtdTotal = 0;
     let ytdTotal = 0;
@@ -893,16 +896,32 @@ export class ReportService {
       const budgetMonth =
         budget.years === currentYear
           ? new Date(budget.createdAt).getMonth() + 1
-          : null;
+          : budget.years === yearsFilter
+            ? new Date().getMonth() + 1
+            : null;
       const budgetYear = budget.years;
-      console.log(budgetMonth, budgetYear);
+      // console.log(new Date(budget.createdAt).getMonth() + 1);
+      console.log('Ini Bulan: ', budgetMonth);
+      console.log('Ini Tahun: ', budgetYear);
+      console.log('Fungsi 1', budget.years === currentYear);
+      console.log('Fungsi 2', budget.years === yearsFilter);
+      const monthFieldName = `value${budgetMonth}`;
+      console.log('Ini monthField: ', monthFieldName);
+      console.log(budget[monthFieldName]);
+      console.log("Fungsi 3:",budgetMonth === currentMonth && budgetYear === currentYear)
+      console.log('============================');
 
       if (budgetMonth === currentMonth && budgetYear === currentYear) {
-        // MTD calculation for the current month
         mtdTotal += budget.total;
       }
-
+      if (budgetMonth === currentMonth && budgetYear === yearsFilter) {
+        mtdTotal += budget.total;
+      }
       if (budgetYear === currentYear && budgetMonth <= currentMonth) {
+        // YTD calculation for the current year
+        ytdTotal += budget.total;
+      }
+      if (budgetYear === yearsFilter && budgetMonth <= currentMonth) {
         // YTD calculation for the current year
         ytdTotal += budget.total;
       }

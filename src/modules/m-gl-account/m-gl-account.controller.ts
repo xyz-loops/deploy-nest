@@ -48,8 +48,9 @@ export class MGlAccountController {
   findAllPaginated(
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
+    @Query() queryParams: any
   ) {
-    return this.mGlAccountService.findAllPaginated(page, orderBy);
+    return this.mGlAccountService.findAllPaginated(page, orderBy, queryParams);
   }
 
   @Put('/update/:id')

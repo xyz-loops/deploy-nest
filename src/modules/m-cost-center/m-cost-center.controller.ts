@@ -100,8 +100,9 @@ export class MCostCenterController {
   findAllPaginated(
     @Query('page') page: number,
     @Query('orderBy') orderBy: string,
+    @Query() queryParams: any,
   ) {
-    return this.mCostCenterService.findAllPaginated(page, orderBy);
+    return this.mCostCenterService.findAllPaginated(page, orderBy, queryParams);
   }
 
   @Put('/update/:id')
