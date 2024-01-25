@@ -347,6 +347,11 @@ export class ApprovalService {
         departmentTo = 'TXC-3';
       } else if (updateRealizationDto.statusToId === 10) {
         personalNumberTo =
+          realization.roleAssignment['SM_TXC']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['SM_TXC']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 11) {
+        personalNumberTo =
           realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
@@ -399,10 +404,10 @@ export class ApprovalService {
               item.amountApprove !== null
                 ? item.amountApprove
                 : item.amountCorrection !== null
-                ? item.amountCorrection
-                : item.amountHps !== null
-                ? item.amountHps
-                : null;
+                  ? item.amountCorrection
+                  : item.amountHps !== null
+                    ? item.amountHps
+                    : null;
 
             return await this.prisma.realizationItem.update({
               where: { idRealizationItem: item.idRealizationItem },
