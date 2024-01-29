@@ -238,11 +238,11 @@ model MStatus {
   idStatus   Int      @id @default(autoincrement()) @map("id_status")
   uniqueId   String   @unique @default(uuid()) @map("unique_id") @db.Uuid
   type       String   @db.VarChar(50)
-  status     String   @map("status") @db.VarChar(25)
+  status     String   @map("status") @db.VarChar()
   step       Int      @db.Integer
   department String?  @db.VarChar(8)
   level      Int      @db.Integer
-  function   String?  @db.VarChar(20)
+  function   String?  @db.VarChar()
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   createdBy  String   @map("created_by") @db.VarChar(50)
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
