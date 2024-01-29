@@ -327,7 +327,10 @@ export class ApprovalService {
           realization.roleAssignment['vicePresident']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresident']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 6) {
+      } else if (
+        updateRealizationDto.statusToId === 6 &&
+        updateRealizationDto.status === 'OPEN'
+      ) {
         personalNumberTo = null;
         departmentTo = 'TAB';
         taReff = await this.generateTAReff(idRealization);
@@ -336,13 +339,15 @@ export class ApprovalService {
           realization.roleAssignment['SM_TAB']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['SM_TAB']?.personalUnit ?? null;
-        taReff = taReff;
       } else if (updateRealizationDto.statusToId === 8) {
         personalNumberTo =
           realization.roleAssignment['vicePresidentTA']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTA']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 9) {
+      } else if (
+        updateRealizationDto.statusToId === 9 &&
+        updateRealizationDto.status === 'PROGRESS'
+      ) {
         personalNumberTo = null;
         departmentTo = 'TXC-3';
       } else if (updateRealizationDto.statusToId === 10) {
@@ -355,6 +360,23 @@ export class ApprovalService {
           realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
+      }
+      //revise
+      else if (
+        updateRealizationDto.statusToId === 6 &&
+        updateRealizationDto.status === 'REVISE'
+      ) {
+        personalNumberTo =
+          realization.roleAssignment['TAB']?.personalNumber ?? null;
+        departmentTo = realization.roleAssignment['TAB']?.personalUnit ?? null;
+      } else if (
+        updateRealizationDto.statusToId === 9 &&
+        updateRealizationDto.status === 'REVISE'
+      ) {
+        personalNumberTo =
+          realization.roleAssignment['TXC_3']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['TXC_3']?.personalUnit ?? null;
       }
 
       const updatedRealization = await this.prisma.realization.update({
