@@ -343,7 +343,10 @@ export class ApprovalService {
           realization.roleAssignment['vicePresident']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresident']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 6) {
+      } else if (
+        updateRealizationDto.statusToId === 6 &&
+        updateRealizationDto.status === 'OPEN'
+      ) {
         personalNumberTo = null;
         departmentTo = 'TAB';
         taReff = await this.generateTAReff(idRealization);
@@ -365,7 +368,10 @@ export class ApprovalService {
           realization.roleAssignment['vicePresidentTA']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTA']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 11) {
+      } else if (
+        updateRealizationDto.statusToId === 11 &&
+        updateRealizationDto.status === 'PROGRESS'
+      ) {
         personalNumberTo = null;
         departmentTo = 'TXC-3';
       } else if (updateRealizationDto.statusToId === 12) {
@@ -382,6 +388,24 @@ export class ApprovalService {
         personalNumberTo =
           realization.roleAssignment['DF']?.personalNumber ?? null;
         departmentTo = realization.roleAssignment['DF']?.personalUnit ?? null;
+      }
+
+      //revise
+      else if (
+        updateRealizationDto.statusToId === 6 &&
+        updateRealizationDto.status === 'REVISE'
+      ) {
+        personalNumberTo =
+          realization.roleAssignment['TAB']?.personalNumber ?? null;
+        departmentTo = realization.roleAssignment['TAB']?.personalUnit ?? null;
+      } else if (
+        updateRealizationDto.statusToId === 11 &&
+        updateRealizationDto.status === 'REVISE'
+      ) {
+        personalNumberTo =
+          realization.roleAssignment['TXC_3']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['TXC_3']?.personalUnit ?? null;
       }
 
       const updatedRealization = await this.prisma.realization.update({
