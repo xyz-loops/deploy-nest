@@ -124,6 +124,7 @@ export class UpdateRealizationItemDto {
       item.amountSubmission = Number(item.amountSubmission);
       item.amountHps = Number(item.amountHps);
       item.amountCorrection = Number(item.amountCorrection);
+      item.amountApprove = Number(item.amountApprove);
       item.glAccountId = Number(item.glAccountId);
       return item;
     });

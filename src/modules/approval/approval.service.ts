@@ -452,14 +452,13 @@ export class ApprovalService {
         updatedItems = await Promise.all(
           realizationItemDto.map(async (item: UpdateRealizationItemDto) => {
             const amount =
-              item.amountApprove !== null
+              item.amountApprove !== null && item.amountApprove !== 0
                 ? item.amountApprove
-                : item.amountCorrection !== null
+                : item.amountCorrection !== null && item.amountCorrection !== 0
                   ? item.amountCorrection
-                  : item.amountHps !== null
+                  : item.amountHps !== null && item.amountHps !== 0
                     ? item.amountHps
                     : null;
-
             return await this.prisma.realizationItem.update({
               where: { idRealizationItem: item.idRealizationItem },
               data: {
