@@ -18,6 +18,7 @@ import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 import { status } from 'prisma/dummy-data';
 import { HttpService } from '@nestjs/axios';
 import { RoleService } from '../role/role.service';
+import { CreateFileDto } from '../realization/dto/create-file-upload.dto';
 
 @Injectable()
 export class ApprovalService {
@@ -64,6 +65,7 @@ export class ApprovalService {
     queryParams: any,
     isTAB: boolean,
     isTXC3: boolean,
+    isTAP: boolean,
   ) {
     try {
       const perPage = 10;
@@ -102,7 +104,13 @@ export class ApprovalService {
         filter.status = status;
       }
       if (statusTo) {
-        filter.personalNumberTo = statusTo;
+        if (statusTo === 'TAB') {
+          filter.personalNumberTo = null;
+        } else if (statusTo === 'TXC-3') {
+          filter.personalNumberTo = null;
+        } else {
+          filter.personalNumberTo = statusTo;
+        }
       }
 
       if (entryDate && entryDateTo) {
@@ -133,6 +141,14 @@ export class ApprovalService {
           OR: [
             { personalNumberTo: personalNumberTo },
             { personalNumberTo: null, departmentTo: 'TXC-3' },
+          ],
+        };
+      } else if (isTAP === true) {
+        conditions = {
+          ...filter,
+          OR: [
+            { personalNumberTo: personalNumberTo },
+            { personalNumberTo: null, departmentTo: 'TAP' },
           ],
         };
       } else {
@@ -291,7 +307,7 @@ export class ApprovalService {
     return realizationWithFileUpload;
   }
 
-  async approval(dto: ApproveDto) {
+  async approval(dto: ApproveDto, uploadfile: CreateFileDto[]) {
     const {
       idRealization,
       updateRealizationDto,
@@ -327,56 +343,45 @@ export class ApprovalService {
           realization.roleAssignment['vicePresident']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresident']?.personalUnit ?? null;
-      } else if (
-        updateRealizationDto.statusToId === 6 &&
-        updateRealizationDto.status === 'OPEN'
-      ) {
+      } else if (updateRealizationDto.statusToId === 6) {
         personalNumberTo = null;
         departmentTo = 'TAB';
         taReff = await this.generateTAReff(idRealization);
       } else if (updateRealizationDto.statusToId === 7) {
+        personalNumberTo = null;
+        departmentTo = 'TAP';
+      } else if (updateRealizationDto.statusToId === 8) {
+        personalNumberTo =
+          realization.roleAssignment['SM_TAP']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['SM_TAP']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 9) {
         personalNumberTo =
           realization.roleAssignment['SM_TAB']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['SM_TAB']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 8) {
+      } else if (updateRealizationDto.statusToId === 10) {
         personalNumberTo =
           realization.roleAssignment['vicePresidentTA']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTA']?.personalUnit ?? null;
-      } else if (
-        updateRealizationDto.statusToId === 9 &&
-        updateRealizationDto.status === 'PROGRESS'
-      ) {
+      } else if (updateRealizationDto.statusToId === 11) {
         personalNumberTo = null;
         departmentTo = 'TXC-3';
-      } else if (updateRealizationDto.statusToId === 10) {
+      } else if (updateRealizationDto.statusToId === 12) {
         personalNumberTo =
           realization.roleAssignment['SM_TXC']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['SM_TXC']?.personalUnit ?? null;
-      } else if (updateRealizationDto.statusToId === 11) {
+      } else if (updateRealizationDto.statusToId === 13) {
         personalNumberTo =
           realization.roleAssignment['vicePresidentTX']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['vicePresidentTX']?.personalUnit ?? null;
-      }
-      //revise
-      else if (
-        updateRealizationDto.statusToId === 6 &&
-        updateRealizationDto.status === 'REVISE'
-      ) {
+      } else if (updateRealizationDto.statusToId === 14) {
         personalNumberTo =
-          realization.roleAssignment['TAB']?.personalNumber ?? null;
-        departmentTo = realization.roleAssignment['TAB']?.personalUnit ?? null;
-      } else if (
-        updateRealizationDto.statusToId === 9 &&
-        updateRealizationDto.status === 'REVISE'
-      ) {
-        personalNumberTo =
-          realization.roleAssignment['TXC_3']?.personalNumber ?? null;
-        departmentTo =
-          realization.roleAssignment['TXC_3']?.personalUnit ?? null;
+          realization.roleAssignment['DF']?.personalNumber ?? null;
+        departmentTo = realization.roleAssignment['DF']?.personalUnit ?? null;
       }
 
       const updatedRealization = await this.prisma.realization.update({
@@ -445,8 +450,28 @@ export class ApprovalService {
         );
       }
 
+      const uploadFiles = await Promise.all(
+        uploadfile.map(async (file: CreateFileDto) => {
+          return this.prisma.fileUpload.create({
+            data: {
+              ...file,
+              tableName: 'Realization',
+              tableId: idRealization,
+              department: approvalDto.unit,
+              createdBy: updateRealizationDto.updatedBy,
+            },
+          });
+        }),
+      );
+
       return {
-        data: { updatedRealization, createApproval, updatedItems, createMemo },
+        data: {
+          updatedRealization,
+          createApproval,
+          updatedItems,
+          createMemo,
+          uploadFiles,
+        },
         meta: null,
         message: 'Realization updated, and Approval created successfully',
         status: HttpStatus.OK,
@@ -510,6 +535,7 @@ export class ApprovalService {
     updateRealizationDto: UpdateRealizationDto,
     isTAB: boolean,
     isTXC3: boolean,
+    isTAP: boolean,
   ) {
     const realization = await this.prisma.realization.findUnique({
       where: { idRealization: id },
@@ -518,10 +544,12 @@ export class ApprovalService {
       throw new NotFoundException(`Realization with ID ${id} not found`);
     }
     let conditions: string;
-    if (isTAB === true && isTXC3 === false) {
+    if (isTAB === true && isTXC3 === false && isTAP === false) {
       conditions = 'TAB';
-    } else if (isTAB === false && isTXC3 === true) {
+    } else if (isTAB === false && isTXC3 === true && isTAP === false) {
       conditions = 'TXC_3';
+    } else if (isTAB === false && isTXC3 === false && isTAP === true) {
+      conditions = 'TAP';
     } else {
       throw new BadRequestException('Invalid conditions');
     }

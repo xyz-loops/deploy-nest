@@ -29,7 +29,7 @@ export class RealizationService {
     this.prismaService = new PrismaClient();
   }
 
-  async generateRequestNumber(idCostCenter: number): Promise<string> {
+  private async generateRequestNumber(idCostCenter: number): Promise<string> {
     const year = new Date().getFullYear() % 100;
     const month = new Date().getMonth() + 1;
 
@@ -51,7 +51,7 @@ export class RealizationService {
 
     return requestNumber;
   }
-  async generateDepartment(idCostCenter: number): Promise<string> {
+  private async generateDepartment(idCostCenter: number): Promise<string> {
     const mCostCenter = await this.prisma.mCostCenter.findUnique({
       where: { idCostCenter },
     });
@@ -60,7 +60,6 @@ export class RealizationService {
 
     return department;
   }
-
   async createRealization<T>(
     createRealization: CreateRealizationDto,
     realizationItems: CreateRealizationItemDto[],
@@ -69,7 +68,7 @@ export class RealizationService {
   ) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Transaction timeout')), 60000),
+        setTimeout(() => reject(new Error('Transaction timeout')), 600000),
       );
 
       const transactionPromise = this.prisma.$transaction(
@@ -93,9 +92,31 @@ export class RealizationService {
             roleAssignment = await this.roleService.getRole(
               createRealization.createdBy,
             );
-            dtoRoleAssignment = this.mapRoleAssignment(roleAssignment);
-          }
 
+            if (
+              !(
+                createRealization.type === 'PENGADAAN' &&
+                realizationItems.reduce(
+                  (sum, item) => sum + item.amountSubmission,
+                  0,
+                ) > 10000000
+              )
+            ) {
+              dtoRoleAssignment = {
+                employee: roleAssignment.employee,
+                seniorManager: roleAssignment.seniorManager,
+                vicePresident: roleAssignment.vicePresident,
+                SM_TAB: roleAssignment.SM_TAB,
+                vicePresidentTA: roleAssignment.vicePresidentTA,
+                SM_TXC: roleAssignment.SM_TXC,
+                vicePresidentTX: roleAssignment.vicePresidentTX,
+                SM_TAP: null,
+                DF: null,
+              };
+            } else {
+              dtoRoleAssignment = this.mapRoleAssignment(roleAssignment);
+            }
+          }
           // Extract Realization data from the DTO
           const { ...realizationData } = createRealization;
 

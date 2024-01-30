@@ -136,22 +136,28 @@ export class AllRoleDto {
   employee: RoleDto;
   seniorManager: RoleDto;
   vicePresident: RoleDto;
+  TAP: RoleDto;
+  SM_TAP: RoleDto;
   TAB: RoleDto;
   SM_TAB: RoleDto;
   vicePresidentTA: RoleDto;
   TXC_3: RoleDto;
   SM_TXC: RoleDto;
   vicePresidentTX: RoleDto;
+  DF: RoleDto;
 
   static propertyNames: (keyof AllRoleDto)[] = [
     'employee',
     'seniorManager',
     'vicePresident',
+    'TAP',
+    'SM_TAP',
     'TAB',
     'SM_TAB',
     'vicePresidentTA',
     'TXC_3',
     'SM_TXC',
     'vicePresidentTX',
+    'DF',
   ];
 }

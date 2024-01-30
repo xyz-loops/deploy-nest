@@ -32,13 +32,15 @@ export class UpdateRealizationDto {
   // @IsNotEmpty()
   titleRequest: string;
 
-  // @IsString()
-  // @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   noteRequest: string;
 
+  @Type(() => Number)
   statusId: number;
 
   @IsOptional()
+  @Type(() => Number)
   statusToId: number;
 
   @IsOptional()
@@ -55,9 +57,28 @@ export class UpdateRealizationDto {
   departmentTo: string;
 
   personalNumberTo: string;
+  contributors;
+
+  realizationItems: UpdateRealizationItemDto[];
+
+  static fromRequest(data: UpdateRealizationDto): UpdateRealizationDto {
+    data.years = Number(data.years);
+    data.month = Number(data.month);
+    data.statusId = Number(data.statusId);
+    data.statusToId = Number(data.statusToId);
+
+    if (Array.isArray(data.realizationItems)) {
+      data.realizationItems = UpdateRealizationItemDto.fromRequestArray(
+        data.realizationItems,
+      );
+    }
+
+    return data;
+  }
 }
 
 export class UpdateRealizationItemDto {
+  @Type(() => Number)
   idRealizationItem: number;
   @Type(() => Number)
   realizationId: number;
@@ -98,6 +119,7 @@ export class UpdateRealizationItemDto {
     data: UpdateRealizationItemDto[],
   ): UpdateRealizationItemDto[] {
     return data.map((item) => {
+      item.idRealizationItem = Number(item.idRealizationItem);
       item.amount = Number(item.amount);
       item.amountSubmission = Number(item.amountSubmission);
       item.amountHps = Number(item.amountHps);
