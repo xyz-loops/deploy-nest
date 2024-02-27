@@ -338,6 +338,11 @@ export class ApprovalService {
           realization.roleAssignment['employee']?.personalNumber ?? null;
         departmentTo =
           realization.roleAssignment['employee']?.personalUnit ?? null;
+      } else if (updateRealizationDto.statusToId === 4) {
+        personalNumberTo =
+          realization.roleAssignment['seniorManager']?.personalNumber ?? null;
+        departmentTo =
+          realization.roleAssignment['seniorManager']?.personalUnit ?? null;
       } else if (updateRealizationDto.statusToId === 5) {
         personalNumberTo =
           realization.roleAssignment['vicePresident']?.personalNumber ?? null;
