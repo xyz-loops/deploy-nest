@@ -18,7 +18,6 @@ export const docCategory = [
 
 export const status = [
   {
-    idStatus: 1,
     type: 'OPEX',
     status: 'Create',
     step: 1,
@@ -26,7 +25,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 2,
     type: 'OPEX',
     status: 'Created',
     step: 1,
@@ -35,7 +33,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 3,
     type: 'OPEX',
     status: 'Confirm Manager User',
     step: 2,
@@ -43,7 +40,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 4,
     type: 'OPEX',
     status: 'Confirm SM User',
     step: 3,
@@ -51,7 +47,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 5,
     type: 'OPEX',
     status: 'Approve VP User',
     step: 4,
@@ -60,7 +55,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 6,
     type: 'OPEX',
     status: 'Review Budget Controller',
     department: 'TAB',
@@ -70,7 +64,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 7,
     type: 'OPEX',
     status: 'Create HPS',
     department: 'TAP',
@@ -80,7 +73,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 8,
     type: 'OPEX',
     status: 'Confirm HPS',
     department: 'TAP',
@@ -90,7 +82,6 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 9,
     type: 'OPEX',
     status: 'Approve Budget Controller',
     department: 'TAB',
@@ -99,12 +90,19 @@ export const status = [
     createdBy: '582127',
   },
   {
-    idStatus: 10,
     type: 'OPEX',
     status: 'Approve Budget',
     department: 'TA',
     step: 8,
     level: 2,
+    createdBy: '582127',
+  },
+  {
+    type: 'OPEX',
+    status: 'Review Budget Realization',
+    department: 'TX',
+    step: 9,
+    level: 6,
     createdBy: '582127',
   },
 ];

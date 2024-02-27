@@ -93,13 +93,21 @@ export class RealizationService {
               createRealization.createdBy,
             );
 
+            const kurs = await this.prisma.mKurs.findUnique({
+              where: {
+                years: new Date().getFullYear(),
+              },
+            });
+
             if (
               !(
                 createRealization.type === 'PENGADAAN' &&
                 realizationItems.reduce(
                   (sum, item) => sum + item.amountSubmission,
                   0,
-                ) > 10000000
+                ) *
+                  kurs.value >
+                  10000000
               )
             ) {
               dtoRoleAssignment = {
