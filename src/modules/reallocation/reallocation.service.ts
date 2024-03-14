@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   HttpStatus,
   Injectable,
   InternalServerErrorException,
@@ -9,6 +10,12 @@ import { UpdateReallocationDto } from './dto/update-reallocation.dto';
 import { PrismaService } from 'src/core/service/prisma.service';
 import { SortOrder } from '@elastic/elasticsearch/lib/api/types';
 import { RoleService } from '../role/role.service';
+import {
+  CreateRealizationDto,
+  CreateRealizationItemDto,
+} from '../realization/dto/create-realization.dto';
+import { CreateFileDto } from '../realization/dto/create-file-upload.dto';
+import { StatusEnum } from '@prisma/client';
 
 @Injectable()
 export class ReallocationService {
@@ -215,8 +222,168 @@ export class ReallocationService {
     }
   }
 
-  create(createReallocationDto: CreateReallocationDto) {
-    return 'This action adds a new reallocation';
+  async createReallocation<T>(
+    createRealization: CreateRealizationDto,
+    realizationItems: CreateRealizationItemDto[],
+    uploadfile: CreateFileDto[],
+    status: 'save' | 'submit',
+  ) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Transaction timeout')), 600000),
+      );
+
+      const transactionPromise = this.prisma.$transaction(
+        async (prisma) => {
+          let statusTom: number = 1;
+          let statusToTom: number = 2;
+          let requestNumber: string | null = null;
+          let roleAssignment: any = null;
+          let dtoRoleAssignment = null;
+
+          if (status && status == 'submit') {
+            statusTom = 2;
+            statusToTom = 4;
+
+            roleAssignment = await this.roleService.getRole(
+              createRealization.createdBy,
+            );
+
+            const kurs = await this.prisma.mKurs.findUnique({
+              where: {
+                years: new Date().getFullYear(),
+              },
+            });
+
+            if (
+              !(
+                createRealization.type === 'PENGADAAN' &&
+                realizationItems.reduce(
+                  (sum, item) => sum + item.amountSubmission,
+                  0,
+                ) *
+                  kurs.value >
+                  10000000
+              )
+            ) {
+              dtoRoleAssignment = {
+                employee: roleAssignment.employee,
+                seniorManager: roleAssignment.seniorManager,
+                vicePresident: roleAssignment.vicePresident,
+                SM_TAB: roleAssignment.SM_TAB,
+                vicePresidentTA: roleAssignment.vicePresidentTA,
+                SM_TXC: roleAssignment.SM_TXC,
+                vicePresidentTX: roleAssignment.vicePresidentTX,
+                SM_TAP: null,
+                DF: null,
+              };
+            } else {
+              dtoRoleAssignment = null;
+            }
+          }
+          // Extract Realization data from the DTO
+          const { ...realizationData } = createRealization;
+
+          // // Create realization within the transaction
+          const createdRealization = await prisma.realization.create({
+            data: {
+              years: new Date().getFullYear(),
+              month: new Date().getMonth() + 1,
+              requestNumber: requestNumber,
+              taReff: realizationData.taReff,
+              responsibleNopeg: realizationData.responsibleNopeg,
+              titleRequest: realizationData.titleRequest,
+              noteRequest: realizationData.noteRequest,
+              department: realizationData.department,
+              personalNumber: realizationData.personalNumber,
+              departmentTo: roleAssignment?.seniorManager?.personalUnit || null,
+              personalNumberTo:
+                roleAssignment?.seniorManager?.personalNumber || null,
+              createdBy: realizationData.createdBy,
+              status: StatusEnum.OPEN,
+              type: realizationData.type,
+              roleAssignment: dtoRoleAssignment,
+              m_status_realization_id_statusTom_status: {
+                connect: {
+                  idStatus: statusTom,
+                },
+              },
+              m_status_realization_id_status_toTom_status: {
+                connect: {
+                  idStatus: statusToTom,
+                },
+              },
+              m_cost_center: {
+                connect: {
+                  idCostCenter: realizationData.costCenterId,
+                },
+              },
+            },
+          });
+
+          const createdItems = await Promise.all(
+            realizationItems.map(async (item: CreateRealizationItemDto) => {
+              return prisma.realizationItem.create({
+                data: {
+                  ...item,
+                  realizationId: createdRealization.idRealization,
+                  amount: item.amountSubmission,
+                  createdBy: createdRealization.createdBy,
+                  glAccountId: item.glAccountId,
+                },
+              });
+            }),
+          );
+
+          // Create file uploads within the transaction
+          const uploadFiles = await Promise.all(
+            uploadfile.map(async (file: CreateFileDto) => {
+              return prisma.fileUpload.create({
+                data: {
+                  ...file,
+                  tableName: 'Realization',
+                  tableId: createdRealization.idRealization,
+                  department: createdRealization.department,
+                  createdBy: createdRealization.createdBy,
+                },
+              });
+            }),
+          );
+
+          return {
+            realization: {
+              ...createdRealization,
+              realizationItems: createdItems,
+              uploadFiles,
+            },
+          };
+        },
+        {
+          timeout: 600000, // default: 5000
+        },
+      );
+
+      const result = await Promise.race([timeoutPromise, transactionPromise]);
+
+      if (result instanceof Error) {
+        throw result;
+      }
+
+      return result;
+    } catch (error) {
+      console.log(error.message);
+      throw new HttpException(
+        {
+          data: null,
+          meta: null,
+          message: 'Failed to create new request',
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          time: new Date(),
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   findAll() {
