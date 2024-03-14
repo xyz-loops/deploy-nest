@@ -222,7 +222,7 @@ export class ReallocationService {
     }
   }
 
-  async createReallocation<T>(
+  async createReallocation(
     createRealization: CreateRealizationDto,
     realizationItems: CreateRealizationItemDto[],
     uploadfile: CreateFileDto[],
@@ -359,7 +359,7 @@ export class ReallocationService {
           };
         },
         {
-          timeout: 600000, // default: 5000
+          timeout: 600000,
         },
       );
 

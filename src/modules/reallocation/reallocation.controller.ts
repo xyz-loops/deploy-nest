@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { ReallocationService } from './reallocation.service';
 import { CreateReallocationDto } from './dto/create-reallocation.dto';
 import { UpdateReallocationDto } from './dto/update-reallocation.dto';
@@ -6,11 +14,6 @@ import { UpdateReallocationDto } from './dto/update-reallocation.dto';
 @Controller('reallocation')
 export class ReallocationController {
   constructor(private readonly reallocationService: ReallocationService) {}
-
-  @Post()
-  create(@Body() createReallocationDto: CreateReallocationDto) {
-    return this.reallocationService.create(createReallocationDto);
-  }
 
   @Get()
   findAll() {
@@ -23,7 +26,10 @@ export class ReallocationController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateReallocationDto: UpdateReallocationDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateReallocationDto: UpdateReallocationDto,
+  ) {
     return this.reallocationService.update(+id, updateReallocationDto);
   }
 
