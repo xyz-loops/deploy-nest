@@ -12,6 +12,7 @@ import { RoleModule } from './modules/role/role.module';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { MDocCategoryModule } from './modules/m-doc-category/m-doc-category.module';
 import { ReportModule } from './modules/report/report.module';
+import { ReallocationModule } from './reallocation/reallocation.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ReportModule } from './modules/report/report.module';
     RealizationModule,
     ReportModule,
     RoleModule,
+    ReallocationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
