@@ -53,14 +53,15 @@ export class BudgetUploadController {
   @Get('/all/filter')
   async findFilterBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
-      const findFilterBudget =
-        await this.budgetUploadService.getViewBudget(queryParams);
-      const findActual =
+      const budget = await this.budgetUploadService.getViewBudget(queryParams);
+      const actual =
         await this.budgetUploadService.getActualRealization(queryParams);
+      const remainingBudget =
+        await this.budgetUploadService.getRemainingTable(queryParams);
       return res.status(200).json({
-        budget: findFilterBudget,
-        actual: findActual,
-        remaining: null,
+        budget,
+        actual,
+        remainingBudget,
         meta: {
           status: 'OK',
         },
@@ -110,27 +111,6 @@ export class BudgetUploadController {
     };
   }
 
-  @Get('/tables')
-  async tableAll(@Query() queryParams: any) {
-    const budget = await this.budgetUploadService.getViewBudget(queryParams);
-    const actual =
-      await this.budgetUploadService.getActualRealization(queryParams);
-    const remainingTotal =
-      await this.budgetUploadService.getRemainingTable(queryParams);
-    return {
-      data: {
-        budget,
-        actual,
-        remainingTotal,
-      },
-      meta: {
-        status: 'OK',
-      },
-      message: 'Data has been converted & saved',
-      time: new Date(),
-    };
-  }
-
   @Post('/savesimulate')
   findAll(@Body() dto: SavaSimulate) {
     return this.budgetUploadService.saveSimulate(dto);
@@ -139,17 +119,5 @@ export class BudgetUploadController {
   @Get('/get')
   getPercentage() {
     return this.budgetUploadService.getSimulationBudget();
-  }
-
-  @Get('/budgetactual')
-  async getBudgetAndActual(@Query() queryParams: any) {
-    try {
-      const result =
-        await this.budgetUploadService.getRemainingTable(queryParams);
-      return { success: true, data: result };
-    } catch (error) {
-      // Handle errors and return an appropriate response
-      return { success: false, error: 'An error occurred' };
-    }
   }
 }

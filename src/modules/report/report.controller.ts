@@ -24,13 +24,14 @@ export class ReportController {
   @Get('/budget')
   async filterViewBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
-      const findBudget = await this.reportService.getAllBudget(queryParams);
-      const findActual =
-        await this.reportService.getActualRealization(queryParams);
+      const budget = await this.reportService.getViewBudget(queryParams);
+      const actual = await this.reportService.getActualRealization(queryParams);
+      const remainingBudget =
+        await this.reportService.getRemainingTable(queryParams);
       return res.status(200).json({
-        budget: findBudget,
-        actual: findActual,
-        remaining: null,
+        budget,
+        actual,
+        remainingBudget,
         meta: {
           status: 'OK',
         },
@@ -64,8 +65,7 @@ export class ReportController {
   @Get('/count')
   async countIndicator(@Query() queryParams: any) {
     const budget = await this.reportService.countingBudget(queryParams);
-    const actual =
-      await this.reportService.countingRealization(queryParams);
+    const actual = await this.reportService.countingRealization(queryParams);
     const remainingTotal =
       await this.reportService.calculateRemainingTotal(queryParams);
     return {

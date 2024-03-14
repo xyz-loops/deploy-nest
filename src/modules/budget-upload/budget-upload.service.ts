@@ -24,6 +24,17 @@ export class BudgetUploadService {
     BudgetUploadService?.name;
   }
 
+  /*
+   * async convertBudgetUploadFromExcelToJson for Excel to JSOn
+   * async getAllBudget for show all budget (request from FE)
+   * async getViewBudget for show all budget with filter
+   * async getActualRealization for show all realization with filter
+   * async getRemainingTable for show remaining budget tabel
+   * async countingRealization for MTD & YTD realization
+   * async countingBudget for MTD & YTD budget
+   * async calculateRemainingTotal for Remaining total on MTD & YTD
+   */
+
   async convertBudgetUploadFromExcelToJson<T>(req: Request): Promise<any> {
     try {
       const read = await this.excelService.readFormatExcel(req);
@@ -1120,36 +1131,7 @@ export class BudgetUploadService {
 
     return finalResult;
   }
-
-  //Belum benar
-  async getBudgetAndActual(queryParams: any): Promise<any[]> {
-    try {
-      const budgetResults = await this.getViewBudget(queryParams);
-      const actualResults = await this.getActualRealization(queryParams);
-
-      // Menggabungkan hasil budget dan actual
-      const mergedResults = budgetResults.map((budgetItem: any) => {
-        const correspondingActualItem = actualResults.find(
-          (actualItem: any) => actualItem.title === budgetItem.title,
-        );
-
-        if (correspondingActualItem) {
-          return {
-            ...budgetItem,
-            actual: correspondingActualItem,
-          };
-        } else {
-          return budgetItem;
-        }
-      });
-
-      return mergedResults;
-    } catch (error) {
-      // Handle errors as needed
-      throw error;
-    }
-  }
-
+  
   async getRemainingTable(queryParams) {
     const budgetResults = await this.getViewBudget(queryParams);
     const actualResults = await this.getActualRealization(queryParams);
@@ -1159,9 +1141,9 @@ export class BudgetUploadService {
       const actualItem = actualResults[index];
       const remainingItem = {
         title: budgetItem.title,
-        total: budgetItem.total - actualItem.total,
+        total: budgetItem.total - (actualItem ? actualItem.total : 0),
         month: {},
-        groupDetail: {}, // Inisialisasi groupDetail kosong
+        groupDetail: [], // Inisialisasi groupDetail kosong
       };
 
       // Hitung sisa untuk setiap bulan
@@ -1172,17 +1154,26 @@ export class BudgetUploadService {
 
       // Hitung sisa untuk setiap groupDetail
       if (budgetItem.groupDetail) {
-        for (let detail of Object.keys(budgetItem.groupDetail)) {
-          // Pastikan actualItem juga memiliki groupDetail yang sesuai
-          if (
-            actualItem.groupDetail &&
-            actualItem.groupDetail.hasOwnProperty(detail)
-          ) {
-            remainingItem.groupDetail[detail] =
-              budgetItem.groupDetail[detail] - actualItem.groupDetail[detail];
+        for (let detail of budgetItem.groupDetail) {
+          const actualDetail = actualItem.groupDetail.find(
+            (actualDetail) => actualDetail.title === detail.title,
+          );
+          if (actualDetail) {
+            // Jika detail grup ada dalam anggaran aktual, hitung sisa
+            const remainingDetail = {
+              title: detail.title,
+              glNumber: detail.glNumber,
+              total: detail.total - actualDetail.total,
+              month: {},
+            };
+            for (let month of Object.keys(detail.month)) {
+              remainingDetail.month[month] =
+                detail.month[month] - actualDetail.month[month];
+            }
+            remainingItem.groupDetail.push(remainingDetail);
           } else {
-            // Jika actualItem tidak memiliki groupDetail yang sesuai, set nilai remaining menjadi 0
-            remainingItem.groupDetail[detail] = budgetItem.groupDetail[detail];
+            // Jika detail grup tidak ada dalam anggaran aktual, gunakan nilai anggaran
+            remainingItem.groupDetail.push(detail);
           }
         }
       }

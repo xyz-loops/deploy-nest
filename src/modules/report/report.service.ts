@@ -24,7 +24,7 @@ export class ReportService {
     private readonly roleService: RoleService,
   ) {}
 
-  async getAllBudget(queryParams: any) {
+  async getViewBudget(queryParams: any): Promise<any[]> {
     try {
       // Dapatkan nilai filter dari queryParams
       const { years, dinas } = queryParams;
@@ -60,21 +60,6 @@ export class ReportService {
         },
       });
 
-      const months = [
-        'JANUARI',
-        'FEBRUARI',
-        'MARET',
-        'APRIL',
-        'MEI',
-        'JUNI',
-        'JULI',
-        'AGUSTUS',
-        'SEPTEMBER',
-        'OKTOBER',
-        'NOVEMBER',
-        'DESEMBER',
-      ];
-
       if (!results || results.length === 0) {
         // const publicFinalResult = [
         //   {
@@ -101,6 +86,21 @@ export class ReportService {
         return result;
       }, {});
       const uniqueGroupGlValues = Object.keys(groupedData);
+
+      const months = [
+        'JANUARI',
+        'FEBRUARI',
+        'MARET',
+        'APRIL',
+        'MEI',
+        'JUNI',
+        'JULI',
+        'AGUSTUS',
+        'SEPTEMBER',
+        'OKTOBER',
+        'NOVEMBER',
+        'DESEMBER',
+      ];
 
       function sumByGroup(results, group, detail = null) {
         return results
@@ -227,13 +227,14 @@ export class ReportService {
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error; // NestJS will handle NotFoundException and send a 404 response
+      } else {
+        // Log the error or handle other types of errors
+        throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
       }
-      // Log the error or handle other types of errors
-      throw new BadRequestException('Invalid request.'); // NestJS will handle BadRequestException and send a 400 response
     }
   }
 
-  async getActualRealization(queryParams: any) {
+  async getActualRealization(queryParams: any): Promise<any[]> {
     const { years, dinas } = queryParams;
 
     let filter: any = {};
@@ -396,8 +397,13 @@ export class ReportService {
     //For Detail or Child or Nested
     const createCategoryObject = (group, detail, results) => {
       const monthTotalKey = `month${detail.replace(/\s+/g, '')}`;
+      const glNumber = getGlAccount(results, group, detail);
       return {
-        glAccount: getGlAccount(results, group, detail),
+        glAccount:
+          typeof glNumber === 'number' ||
+          (typeof glNumber === 'object' && Object.keys(glNumber).length !== 0)
+            ? glNumber
+            : '-',
         total: sumByGroup(results, group, detail),
         [monthTotalKey]: sumByGroupAndMonth(results, group, detail),
       };
@@ -464,6 +470,59 @@ export class ReportService {
     return finalResult;
   }
 
+  async getRemainingTable(queryParams) {
+    const budgetResults = await this.getViewBudget(queryParams);
+    const actualResults = await this.getActualRealization(queryParams);
+
+    // Hitung total sisa (remaining)
+    const remainingTotal = budgetResults.map((budgetItem, index) => {
+      const actualItem = actualResults[index];
+      const remainingItem = {
+        title: budgetItem.title,
+        total: budgetItem.total - (actualItem ? actualItem.total : 0),
+        month: {},
+        groupDetail: [], // Inisialisasi groupDetail kosong
+      };
+
+      // Hitung sisa untuk setiap bulan
+      for (let month of Object.keys(budgetItem.month)) {
+        remainingItem.month[month] =
+          budgetItem.month[month] - actualItem.month[month];
+      }
+
+      // Hitung sisa untuk setiap groupDetail
+      if (budgetItem.groupDetail) {
+        for (let detail of budgetItem.groupDetail) {
+          const actualDetail = actualItem.groupDetail.find(
+            (actualDetail) => actualDetail.title === detail.title,
+          );
+          if (actualDetail) {
+            // Jika detail grup ada dalam anggaran aktual, hitung sisa
+            const remainingDetail = {
+              title: detail.title,
+              glNumber: detail.glNumber,
+              total: detail.total - actualDetail.total,
+              month: {},
+            };
+            for (let month of Object.keys(detail.month)) {
+              remainingDetail.month[month] =
+                detail.month[month] - actualDetail.month[month];
+            }
+            remainingItem.groupDetail.push(remainingDetail);
+          } else {
+            // Jika detail grup tidak ada dalam anggaran aktual, gunakan nilai anggaran
+            remainingItem.groupDetail.push(detail);
+          }
+        }
+      }
+
+      return remainingItem;
+    });
+
+    return remainingTotal;
+  }
+
+  // BEDA URUSAN
   private getMonthAbbreviation(month: number): string {
     const monthNames = [
       'Januari',
