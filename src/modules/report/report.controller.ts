@@ -21,11 +21,6 @@ import { UpdateReportDto } from './dto/update-report.dto';
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
-  @Post()
-  create(@Body() createReportDto: CreateReportDto) {
-    return this.reportService.create(createReportDto);
-  }
-
   @Get('/budget')
   async filterViewBudget(@Query() queryParams: any, @Res() res: Response) {
     try {
@@ -69,25 +64,23 @@ export class ReportController {
   @Get('/count')
   async countIndicator(@Query() queryParams: any) {
     const budget = await this.reportService.countingBudget(queryParams);
-    const actual = await this.reportService.countingRealization(queryParams);
+    const actual =
+      await this.reportService.countingRealization(queryParams);
+    const remainingTotal =
+      await this.reportService.calculateRemainingTotal(queryParams);
     return {
-      // data: { ...budget, ...actual },
-      data: { budget },
+      data: {
+        BudgetMTD: budget.BudgetMTD,
+        BudgetYTD: budget.BudgetYTD,
+        ActualMTD: actual.ActualMTD,
+        ActualYTD: actual.ActualYTD,
+        RemainingTotal: remainingTotal,
+      },
       meta: {
         status: 'OK',
       },
       message: 'Data has been converted & saved',
       time: new Date(),
     };
-  }
-
-  // @Get('/actual')
-  // getRealization() {
-  //   return this.reportService.findRealizationWithPagination();
-  // }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.reportService.remove(+id);
   }
 }

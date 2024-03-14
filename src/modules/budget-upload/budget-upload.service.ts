@@ -505,7 +505,7 @@ export class BudgetUploadService {
     }
   }
 
-  async getViewBudget(queryParams: any) {
+  async getViewBudget(queryParams: any): Promise<any[]> {
     try {
       // Dapatkan nilai filter dari queryParams
       const { years, dinas, percentage } = queryParams;
@@ -885,7 +885,7 @@ export class BudgetUploadService {
     }
   }
 
-  async getActualRealization(queryParams: any) {
+  async getActualRealization(queryParams: any): Promise<any[]> {
     const { years, dinas } = queryParams;
 
     let filter: any = {};
@@ -1150,6 +1150,49 @@ export class BudgetUploadService {
     }
   }
 
+  async getRemainingTable(queryParams) {
+    const budgetResults = await this.getViewBudget(queryParams);
+    const actualResults = await this.getActualRealization(queryParams);
+
+    // Hitung total sisa (remaining)
+    const remainingTotal = budgetResults.map((budgetItem, index) => {
+      const actualItem = actualResults[index];
+      const remainingItem = {
+        title: budgetItem.title,
+        total: budgetItem.total - actualItem.total,
+        month: {},
+        groupDetail: {}, // Inisialisasi groupDetail kosong
+      };
+
+      // Hitung sisa untuk setiap bulan
+      for (let month of Object.keys(budgetItem.month)) {
+        remainingItem.month[month] =
+          budgetItem.month[month] - actualItem.month[month];
+      }
+
+      // Hitung sisa untuk setiap groupDetail
+      if (budgetItem.groupDetail) {
+        for (let detail of Object.keys(budgetItem.groupDetail)) {
+          // Pastikan actualItem juga memiliki groupDetail yang sesuai
+          if (
+            actualItem.groupDetail &&
+            actualItem.groupDetail.hasOwnProperty(detail)
+          ) {
+            remainingItem.groupDetail[detail] =
+              budgetItem.groupDetail[detail] - actualItem.groupDetail[detail];
+          } else {
+            // Jika actualItem tidak memiliki groupDetail yang sesuai, set nilai remaining menjadi 0
+            remainingItem.groupDetail[detail] = budgetItem.groupDetail[detail];
+          }
+        }
+      }
+
+      return remainingItem;
+    });
+
+    return remainingTotal;
+  }
+
   async countingRealization(queryParams) {
     // Dapatkan nilai filter dari queryParams
     const { groupGl, groupDetail } = queryParams;
@@ -1208,6 +1251,7 @@ export class BudgetUploadService {
           value14: null,
           value15: null,
           value16: null,
+          status: realization.status,
           mGlAccount: {
             glAccount: item.m_gl_account.glAccount,
             groupGl: item.m_gl_account.groupGl,
@@ -1241,14 +1285,17 @@ export class BudgetUploadService {
       const entityMonth = entity.years === currentYear ? entity.month : null;
       const entityYear = entity.years;
 
-      if (entityMonth === currentMonth && entityYear === currentYear) {
-        // MTD calculation for the current month
-        mtdTotal += entity.total;
-      }
+      // Check if the entity status is not "REJECT"
+      if (entity.status !== 'REJECT') {
+        if (entityMonth === currentMonth && entityYear === currentYear) {
+          // MTD calculation for the current month
+          mtdTotal += entity.total;
+        }
 
-      if (entityYear === currentYear && entityMonth <= currentMonth) {
-        // YTD calculation for the current year
-        ytdTotal += entity.total;
+        if (entityYear === currentYear && entityMonth <= currentMonth) {
+          // YTD calculation for the current year
+          ytdTotal += entity.total;
+        }
       }
     });
 
@@ -1281,13 +1328,6 @@ export class BudgetUploadService {
       },
     });
 
-    // // Manipulate date for testing purposes
-    // const fakeCurrentDate = subMonths(new Date(), 1); // Subtracts 2 months from the current date
-    // const currentMonth = fakeCurrentDate.getMonth() + 1;
-    // const currentYear = fakeCurrentDate.getFullYear();
-
-    // console.log(fakeCurrentDate);
-
     // Calculate MTD and YTD totals
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
@@ -1295,27 +1335,56 @@ export class BudgetUploadService {
 
     let mtdTotal = 0;
     let ytdTotal = 0;
+    let totalBudget = 0;
 
     result.forEach((budget) => {
-      const budgetMonth =
-        budget.years === currentYear
-          ? new Date(budget.createdAt).getMonth() + 1
-          : null;
+      const budgetMonth = budget.years === currentYear ? currentMonth : null;
       const budgetYear = budget.years;
-      // console.log(budget.createdAt.getMonth());
 
       if (budgetMonth === currentMonth && budgetYear === currentYear) {
         // MTD calculation for the current month
-        mtdTotal += budget.total;
+        mtdTotal += budget[`value${currentMonth}`] || 0; // Gunakan nilai kolom value sesuai dengan currentMonth
       }
 
-      if (budgetYear === currentYear && budgetMonth <= currentMonth) {
-        // YTD calculation for the current year
-        ytdTotal += budget.total;
+      if (
+        budgetYear === currentYear &&
+        budgetMonth !== null &&
+        budgetMonth <= currentMonth
+      ) {
+        // YTD calculation for the current year and months up to the current month
+        for (let i = currentMonth; i >= 1; i--) {
+          ytdTotal += budget[`value${i}`] || 0; // Akumulasi nilai kolom value dari bulan sekarang hingga bulan 1
+        }
+      }
+      if (
+        budgetYear === currentYear &&
+        budgetMonth !== null &&
+        budgetMonth <= currentMonth
+      ) {
+        // YTD calculation for the current year and months up to the current month
+        totalBudget += budget.total;
       }
     });
 
-    return { BudgetMTD: mtdTotal, BudgetYTD: ytdTotal };
+    return {
+      BudgetMTD: mtdTotal,
+      BudgetYTD: ytdTotal,
+      totalBudget: totalBudget,
+    };
+  }
+
+  async calculateRemainingTotal(queryParams) {
+    // Hitung actualYTD
+    const actualYTDResult = await this.countingRealization(queryParams);
+
+    // Hitung total budget untuk tahun yang diminta
+    const budgetRemaining = await this.countingBudget(queryParams);
+
+    // Hitung total sisa (remaining)
+    const remainingTotal =
+      budgetRemaining.totalBudget - actualYTDResult.ActualYTD;
+
+    return remainingTotal;
   }
 
   async saveSimulate(saveSimulate: SavaSimulate) {

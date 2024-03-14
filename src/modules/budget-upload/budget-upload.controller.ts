@@ -92,9 +92,37 @@ export class BudgetUploadController {
     const budget = await this.budgetUploadService.countingBudget(queryParams);
     const actual =
       await this.budgetUploadService.countingRealization(queryParams);
+    const remainingTotal =
+      await this.budgetUploadService.calculateRemainingTotal(queryParams);
     return {
-      data: { ...budget, ...actual },
-      // data: { actual },
+      data: {
+        BudgetMTD: budget.BudgetMTD,
+        BudgetYTD: budget.BudgetYTD,
+        ActualMTD: actual.ActualMTD,
+        ActualYTD: actual.ActualYTD,
+        RemainingTotal: remainingTotal,
+      },
+      meta: {
+        status: 'OK',
+      },
+      message: 'Data has been converted & saved',
+      time: new Date(),
+    };
+  }
+
+  @Get('/tables')
+  async tableAll(@Query() queryParams: any) {
+    const budget = await this.budgetUploadService.getViewBudget(queryParams);
+    const actual =
+      await this.budgetUploadService.getActualRealization(queryParams);
+    const remainingTotal =
+      await this.budgetUploadService.getRemainingTable(queryParams);
+    return {
+      data: {
+        budget,
+        actual,
+        remainingTotal,
+      },
       meta: {
         status: 'OK',
       },
@@ -113,10 +141,11 @@ export class BudgetUploadController {
     return this.budgetUploadService.getSimulationBudget();
   }
 
-  @Get('budgetactual')
+  @Get('/budgetactual')
   async getBudgetAndActual(@Query() queryParams: any) {
     try {
-      const result = await this.budgetUploadService.getBudgetAndActual(queryParams);
+      const result =
+        await this.budgetUploadService.getRemainingTable(queryParams);
       return { success: true, data: result };
     } catch (error) {
       // Handle errors and return an appropriate response

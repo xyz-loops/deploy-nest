@@ -730,23 +730,23 @@ export class ReportService {
 
   async countingRealization(queryParams) {
     // Dapatkan nilai filter dari queryParams
-    const { groupGl, groupDetail, dinas } = queryParams;
+    const { groupGl, groupDetail, dinas, years } = queryParams;
 
     // Logika filter sesuai dengan kebutuhan
     let filter: any = {};
+    if (groupGl) {
+      filter.m_gl_account = { groupGl: groupGl };
+    }
+    if (groupDetail) {
+      filter.m_gl_account = { groupDetail: groupDetail };
+    }
     if (dinas) {
       filter.realization = {
         ...filter.realization,
         m_cost_center: {
-          dinas: dinas,
+          bidang: dinas,
         },
       };
-    }
-    if (groupGl) {
-      filter.m_gl_account = { groupGl: groupGl }; // konversi ke number jika diperlukan
-    }
-    if (groupDetail) {
-      filter.m_gl_account = { groupDetail: groupDetail };
     }
 
     const realizationItemData = await this.prisma.realizationItem.findMany({
@@ -794,6 +794,7 @@ export class ReportService {
           value14: null,
           value15: null,
           value16: null,
+          status: realization.status,
           mGlAccount: {
             glAccount: item.m_gl_account.glAccount,
             groupGl: item.m_gl_account.groupGl,
@@ -827,14 +828,17 @@ export class ReportService {
       const entityMonth = entity.years === currentYear ? entity.month : null;
       const entityYear = entity.years;
 
-      if (entityMonth === currentMonth && entityYear === currentYear) {
-        // MTD calculation for the current month
-        mtdTotal += entity.total;
-      }
+      // Check if the entity status is not "REJECT"
+      if (entity.status !== 'REJECT') {
+        if (entityMonth === currentMonth && entityYear === currentYear) {
+          // MTD calculation for the current month
+          mtdTotal += entity.total;
+        }
 
-      if (entityYear === currentYear && entityMonth <= currentMonth) {
-        // YTD calculation for the current year
-        ytdTotal += entity.total;
+        if (entityYear === currentYear && entityMonth <= currentMonth) {
+          // YTD calculation for the current year
+          ytdTotal += entity.total;
+        }
       }
     });
 
@@ -842,16 +846,15 @@ export class ReportService {
   }
 
   async countingBudget(queryParams) {
-    // Dapatkan nilai filter dari queryParams
-    const { groupGl, groupDetail, dinas, years } = queryParams;
+    const { years, dinas, groupGl, groupDetail } = queryParams;
 
     // Logika filter sesuai dengan kebutuhan
     let filter: any = {};
-    if (years) {
-      filter.years = +years;
-    }
+    // if (years) {
+    //   filter.years = +years; // konversi ke number jika diperlukan
+    // }
     if (dinas) {
-      filter.mCostCenter = { dinas: dinas };
+      filter.mCostCenter = { bidang: dinas };
     }
     if (groupGl) {
       filter.mGlAccount = { groupGl: groupGl };
@@ -860,95 +863,85 @@ export class ReportService {
       filter.mGlAccount = { groupDetail: groupDetail };
     }
 
+    // Panggil metode prisma atau logika lainnya dengan filter
     const result = await this.prisma.budget.findMany({
       where: filter,
       include: {
         mGlAccount: {
           select: {
             idGlAccount: true,
-            groupDetail: true,
+            glAccount: true,
             groupGl: true,
+            groupDetail: true,
           },
         },
         mCostCenter: {
           select: {
-            dinas: true,
+            idCostCenter: true,
             costCenter: true,
+            // dinas: true,
+            bidang: true,
           },
         },
       },
     });
 
-    // console.log(result);
-
     // Calculate MTD and YTD totals
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
     const currentYear = currentDate.getFullYear();
-    const yearsFilter = filter.years;
-
-    // console.log(currentMonth, currentYear);
 
     let mtdTotal = 0;
     let ytdTotal = 0;
+    let totalBudget = 0;
 
     result.forEach((budget) => {
-      const budgetMonth =
-        budget.years === currentYear
-          ? new Date(budget.createdAt).getMonth() + 1
-          : budget.years === yearsFilter
-            ? new Date().getMonth() + 1
-            : null;
+      const budgetMonth = budget.years === currentYear ? currentMonth : null;
       const budgetYear = budget.years;
-      // console.log(new Date(budget.createdAt).getMonth() + 1);
-      console.log('Ini Bulan: ', budgetMonth);
-      console.log('Ini Tahun: ', budgetYear);
-      console.log('Fungsi 1', budget.years === currentYear);
-      console.log('Fungsi 2', budget.years === yearsFilter);
-      const monthFieldName = `value${budgetMonth}`;
-      console.log('Ini monthField: ', monthFieldName);
-      console.log(budget[monthFieldName]);
-      console.log("Fungsi 3:",budgetMonth === currentMonth && budgetYear === currentYear)
-      console.log('============================');
 
       if (budgetMonth === currentMonth && budgetYear === currentYear) {
-        mtdTotal += budget.total;
+        // MTD calculation for the current month
+        mtdTotal += budget[`value${currentMonth}`] || 0; // Gunakan nilai kolom value sesuai dengan currentMonth
       }
-      if (budgetMonth === currentMonth && budgetYear === yearsFilter) {
-        mtdTotal += budget.total;
+
+      if (
+        budgetYear === currentYear &&
+        budgetMonth !== null &&
+        budgetMonth <= currentMonth
+      ) {
+        // YTD calculation for the current year and months up to the current month
+        for (let i = currentMonth; i >= 1; i--) {
+          ytdTotal += budget[`value${i}`] || 0; // Akumulasi nilai kolom value dari bulan sekarang hingga bulan 1
+        }
       }
-      if (budgetYear === currentYear && budgetMonth <= currentMonth) {
-        // YTD calculation for the current year
-        ytdTotal += budget.total;
-      }
-      if (budgetYear === yearsFilter && budgetMonth <= currentMonth) {
-        // YTD calculation for the current year
-        ytdTotal += budget.total;
+      if (
+        budgetYear === currentYear &&
+        budgetMonth !== null &&
+        budgetMonth <= currentMonth
+      ) {
+        // YTD calculation for the current year and months up to the current month
+        totalBudget += budget.total;
       }
     });
 
-    return { BudgetMTD: mtdTotal, BudgetYTD: ytdTotal };
+    return {
+      BudgetMTD: mtdTotal,
+      BudgetYTD: ytdTotal,
+      totalBudget: totalBudget,
+    };
   }
 
-  // // Manipulate date for testing purposes
-  // const fakeCurrentDate = subMonths(new Date(), 1); // Subtracts 2 months from the current date
-  // const currentMonth = fakeCurrentDate.getMonth() + 1;
-  // const currentYear = fakeCurrentDate.getFullYear();
+  async calculateRemainingTotal(queryParams) {
+    // Hitung actualYTD
+    const actualYTDResult = await this.countingRealization(queryParams);
 
-  // console.log(fakeCurrentDate);
+    // Hitung total budget untuk tahun yang diminta
+    const budgetRemaining = await this.countingBudget(queryParams);
 
-  update(id: number, updateReportDto: UpdateReportDto) {
-    return `This action updates a #${id} report`;
-  }
+    // Hitung total sisa (remaining)
+    const remainingTotal =
+      budgetRemaining.totalBudget - actualYTDResult.ActualYTD;
 
-  remove(id: number) {
-    return `This action removes a #${id} report`;
-  }
-
-  async create(createReportDto: CreateReportDto) {
-    const allGlAccounts = await this.prisma.mGlAccount.findMany();
-    const groupedData = countHelper.getGroupedData(allGlAccounts);
-    console.log(allGlAccounts);
-    return groupedData;
+    return remainingTotal;
   }
 }
